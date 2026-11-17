@@ -1,0 +1,29 @@
+# Xcode / build
+build/
+DerivedData/
+*.xcworkspace
+!default.xcworkspace
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+
+# XcodeGen generates this from project.yml — it's not committed.
+StockWatcher/StockWatcher.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Fastlane / signing artifacts
+*.mobileprovision
+*.p12
+*.ipa
+ExportOptions.plist
+
+# Python (icon script venv, if any)
+__pycache__/
+*.pyc

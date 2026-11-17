@@ -1,0 +1,96 @@
+name: StockWatcher
+options:
+  bundleIdPrefix: com.stockwatcher
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+# ---------------------------------------------------------------------------
+# Change ONLY these two values if you fork/rename. The App Group id must match
+# in both targets' entitlements, and DEVELOPMENT_TEAM must be your 10-char
+# Apple Team ID (find it at https://developer.apple.com/account -> Membership).
+# Leaving DEVELOPMENT_TEAM empty is fine for the Simulator; a real device /
+# TestFlight / IPA needs it set (or set it once in Xcode's Signing tab).
+# ---------------------------------------------------------------------------
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""              # <-- put your Apple Team ID here
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2"     # iPhone + iPad
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GENERATE_INFOPLIST_FILE: NO
+    SWIFT_EMIT_LOC_STRINGS: YES
+
+targets:
+  # =========================================================================
+  # Main app
+  # =========================================================================
+  StockWatcher:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stockwatcher.app
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/StockWatcher.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+    dependencies:
+      - target: StockWidgetExtension
+        embed: true
+
+  # =========================================================================
+  # WidgetKit extension (home-screen + lock-screen widgets)
+  # =========================================================================
+  StockWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stockwatcher.app.StockWidget
+        INFOPLIST_FILE: Widget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Widget/StockWidget.entitlements
+
+  # =========================================================================
+  # Unit tests for the analysis engine. Self-contained: it compiles the Shared
+  # sources directly (pure logic, no UIKit/host app needed), so the suite runs
+  # without TEST_HOST wiring.
+  # =========================================================================
+  StockWatcherTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.stockwatcher.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  StockWatcher:
+    build:
+      targets:
+        StockWatcher: all
+        StockWidgetExtension: all
+        StockWatcherTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - StockWatcherTests
+    archive:
+      config: Release
