@@ -54,11 +54,10 @@ public final class WatchlistStore: @unchecked Sendable {
         load().contains { $0.symbol == symbol.uppercased() }
     }
 
-    public func move(from source: IndexSet, to destination: Int) {
-        var items = load()
-        items.move(fromOffsets: source, toOffset: destination)
-        save(items)
-    }
+    // Note: reordering is done in WatchlistViewModel (app target), which can
+    // use SwiftUI's MutableCollection.move(fromOffsets:toOffset:). That method
+    // is NOT in the standard library, so it must not be referenced from Shared
+    // code — the SwiftUI-free test target would fail to link.
 
     /// A sensible starter list of large, liquid TSX names.
     public static let defaultWatchlist: [WatchItem] = [
