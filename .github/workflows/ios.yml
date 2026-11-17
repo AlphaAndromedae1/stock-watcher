@@ -8,22 +8,16 @@ on:
 
 jobs:
   build-test:
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
-      - name: List installed Xcodes
-        run: ls /Applications | grep -i Xcode || true
-
-      - name: Select Xcode 15
+      - name: Show toolchain
         run: |
-          if [ -d /Applications/Xcode_15.4.app ]; then
-            sudo xcode-select -s /Applications/Xcode_15.4.app
-          else
-            sudo xcode-select -s /Applications/Xcode.app
-          fi
+          sw_vers || true
           xcodebuild -version
+          xcodebuild -showsdks | grep -i ios || true
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -84,7 +78,7 @@ jobs:
   #   3. Change the `if:` below to: github.ref == 'refs/heads/main'
   # ---------------------------------------------------------------------------
   archive-ipa:
-    runs-on: macos-14
+    runs-on: macos-latest
     if: ${{ false }}
     needs: build-test
     steps:
