@@ -9,44 +9,83 @@ on:
 jobs:
   build-test:
     runs-on: macos-14
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
+      - name: List installed Xcodes
+        run: ls /Applications | grep -i Xcode || true
+
       - name: Select Xcode 15
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+        run: |
+          if [ -d /Applications/Xcode_15.4.app ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app
+          else
+            sudo xcode-select -s /Applications/Xcode.app
+          fi
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate project
+      - name: Generate Xcode project
         working-directory: StockWatcher
         run: xcodegen generate
 
-      - name: Build & test (iOS Simulator, no signing)
+      - name: Build app + widget (generic iOS, unsigned)
         working-directory: StockWatcher
         run: |
           set -o pipefail
           xcodebuild \
             -project StockWatcher.xcodeproj \
             -scheme StockWatcher \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
-            -skipPackagePluginValidation \
-            CODE_SIGNING_ALLOWED=NO \
-            clean build test | xcbeautify || xcodebuild \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DD \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Upload unsigned .app
+        uses: actions/upload-artifact@v4
+        with:
+          name: StockWatcher-app-unsigned
+          path: StockWatcher/build/DD/Build/Products/Debug-iphoneos/*.app
+          if-no-files-found: warn
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available \
+                 | grep -Eo 'iPhone[^(]*\(([0-9A-Fa-f-]{36})\)' \
+                 | grep -Eo '[0-9A-Fa-f-]{36}' | head -1)
+          if [ -z "$UDID" ]; then
+            echo "No iPhone simulator found"; exit 1
+          fi
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Run unit tests (simulator)
+        working-directory: StockWatcher
+        run: |
+          set -o pipefail
+          xcodebuild \
             -project StockWatcher.xcodeproj \
             -scheme StockWatcher \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/DD \
             CODE_SIGNING_ALLOWED=NO \
-            clean build test
+            test
 
   # ---------------------------------------------------------------------------
-  # Optional: build a signed .ipa for TestFlight / ad-hoc install.
-  # Requires repository secrets for an App Store Connect API key or certs.
-  # Left disabled by default — enable by setting the secrets and the `if:` below.
+  # Optional: a signed .ipa for TestFlight / ad-hoc install. Requires an Apple
+  # Developer account + signing secrets, so it's disabled by default. To enable:
+  #   1. Add your signing (App Store Connect API key or cert/profile) as secrets.
+  #   2. Fill scripts/ExportOptions.sample.plist (teamID + method) -> ExportOptions.plist.
+  #   3. Change the `if:` below to: github.ref == 'refs/heads/main'
   # ---------------------------------------------------------------------------
   archive-ipa:
     runs-on: macos-14
-    if: ${{ false }}   # set to github.ref == 'refs/heads/main' once signing is configured
+    if: ${{ false }}
     needs: build-test
     steps:
       - uses: actions/checkout@v4
