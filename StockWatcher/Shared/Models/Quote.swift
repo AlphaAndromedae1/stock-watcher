@@ -49,6 +49,9 @@ public struct Fundamentals: Equatable, Codable, Sendable {
     public var recommendationKey: String?   // yahoo analyst consensus, e.g. "buy"
     public var numberOfAnalysts: Int?
     public var targetMeanPrice: Double?
+    public var dividendRate: Double?        // annual $ per share
+    public var exDividendDate: Date?
+    public var nextEarningsDate: Date?
 
     public init() {}
 

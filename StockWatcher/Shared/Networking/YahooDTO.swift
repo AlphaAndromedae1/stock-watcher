@@ -70,6 +70,7 @@ public struct QuoteSummaryResponse: Decodable {
         public let summaryDetail: SummaryDetail?
         public let defaultKeyStatistics: KeyStatistics?
         public let financialData: FinancialData?
+        public let calendarEvents: CalendarEvents?
     }
 
     public struct SummaryDetail: Decodable {
@@ -77,9 +78,19 @@ public struct QuoteSummaryResponse: Decodable {
         public let trailingPE: YValue?
         public let forwardPE: YValue?
         public let dividendYield: YValue?
+        public let dividendRate: YValue?
+        public let exDividendDate: YValue?
         public let beta: YValue?
         public let fiftyTwoWeekHigh: YValue?
         public let fiftyTwoWeekLow: YValue?
+    }
+
+    public struct CalendarEvents: Decodable {
+        public let earnings: Earnings?
+        public let exDividendDate: YValue?
+        public struct Earnings: Decodable {
+            public let earningsDate: [YValue]?
+        }
     }
 
     public struct KeyStatistics: Decodable {

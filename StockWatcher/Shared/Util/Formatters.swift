@@ -48,4 +48,17 @@ public enum Fmt {
         f.dateFormat = "h:mm a"
         return f.string(from: date)
     }
+
+    public static func date(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, yyyy"
+        return f.string(from: date)
+    }
+
+    /// Signed currency amount, e.g. "+1,250.40".
+    public static func signedMoney(_ v: Double?) -> String {
+        guard let v, v.isFinite else { return "—" }
+        return String(format: "%@%.2f", v >= 0 ? "+" : "-", abs(v))
+    }
 }

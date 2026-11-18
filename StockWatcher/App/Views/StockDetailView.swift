@@ -1,10 +1,12 @@
 import SwiftUI
 import WidgetKit
 import UIKit
+import Charts
 
 struct StockDetailView: View {
     @StateObject private var model: StockDetailViewModel
     @State private var inWatchlist: Bool
+    @State private var showPositionEditor = false
 
     init(symbol: String, name: String) {
         _model = StateObject(wrappedValue: StockDetailViewModel(symbol: symbol, name: name))
@@ -23,6 +25,7 @@ struct StockDetailView: View {
                 }
                 ratingCard
                 chartCard
+                positionCard
                 if let rating = model.rating {
                     breakdownCard(title: "Oscillators", group: rating.oscillators)
                     breakdownCard(title: "Moving Averages", group: rating.movingAverages)
@@ -45,6 +48,55 @@ struct StockDetailView: View {
             }
         }
         .task { await model.loadAll() }
+        .sheet(isPresented: $showPositionEditor) {
+            PositionEditor(
+                symbol: displaySymbol,
+                holding: model.holding,
+                onSave: { shares, cost in
+                    model.saveHolding(shares: shares, costBasis: cost)
+                    showPositionEditor = false
+                },
+                onRemove: {
+                    model.removeHolding()
+                    showPositionEditor = false
+                })
+        }
+    }
+
+    // MARK: Position / P&L
+
+    private var positionCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Your Position").font(.headline)
+                    Spacer()
+                    Button(model.holding == nil ? "Add" : "Edit") { showPositionEditor = true }
+                        .font(.subheadline)
+                }
+                if let h = model.holding, let price = model.quote?.price {
+                    let gain = h.gain(at: price)
+                    let up = gain >= 0
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                        stat("Shares", Fmt.number(h.shares, decimals: h.shares.rounded() == h.shares ? 0 : 2))
+                        stat("Avg cost", Fmt.price(h.costBasis))
+                        stat("Market value", Fmt.price(h.marketValue(at: price)))
+                        stat("Cost basis", Fmt.price(h.cost))
+                    }
+                    Divider()
+                    HStack {
+                        Text("Total return").font(.subheadline.weight(.medium))
+                        Spacer()
+                        Text("\(Fmt.signedMoney(gain))  (\(Fmt.signedPercent(h.gainPercent(at: price))))")
+                            .font(.subheadline.monospacedDigit().bold())
+                            .foregroundStyle(Color.forChange(up))
+                    }
+                } else {
+                    Text("Add your shares and average cost to track gains/losses here and on your watchlist.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private var displaySymbol: String {
@@ -100,11 +152,31 @@ struct StockDetailView: View {
                             }
                         }
                     }
+                    scoreTrend(c.band.color)
                     Text("A weighted blend of the signals below — research aid, not advice.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func scoreTrend(_ color: Color) -> some View {
+        if model.scoreHistory.count >= 2 {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Score trend").font(.caption2).foregroundStyle(.secondary)
+                Chart(model.scoreHistory) { sample in
+                    LineMark(x: .value("Date", sample.date),
+                             y: .value("Score", sample.score))
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(color)
+                }
+                .chartYScale(domain: 0...100)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+                .frame(height: 40)
             }
         }
     }
@@ -240,6 +312,7 @@ struct StockDetailView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     keyStats
+                    keyDates
                     if !model.fundamentalChecks.isEmpty {
                         Divider()
                         ForEach(model.fundamentalChecks) { check in
@@ -254,6 +327,32 @@ struct StockDetailView: View {
                         }
                     }
                     analystTarget
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var keyDates: some View {
+        let f = model.fundamentals
+        if f.nextEarningsDate != nil || f.exDividendDate != nil || f.dividendRate != nil {
+            Divider()
+            HStack(alignment: .top) {
+                if let e = f.nextEarningsDate {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Next earnings").font(.caption).foregroundStyle(.secondary)
+                        Text(Fmt.date(e)).font(.subheadline)
+                    }
+                }
+                Spacer()
+                if let x = f.exDividendDate {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("Ex-dividend").font(.caption).foregroundStyle(.secondary)
+                        Text(Fmt.date(x)).font(.subheadline)
+                        if let rate = f.dividendRate {
+                            Text("\(Fmt.price(rate))/yr").font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }
@@ -345,5 +444,74 @@ struct Card<Content: View>: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+/// Sheet to enter/edit a holding (shares + average cost).
+struct PositionEditor: View {
+    let symbol: String
+    let holding: Holding?
+    let onSave: (Double, Double) -> Void
+    let onRemove: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var sharesText: String
+    @State private var costText: String
+
+    init(symbol: String, holding: Holding?,
+         onSave: @escaping (Double, Double) -> Void,
+         onRemove: @escaping () -> Void) {
+        self.symbol = symbol
+        self.holding = holding
+        self.onSave = onSave
+        self.onRemove = onRemove
+        _sharesText = State(initialValue: holding.map { Self.trimmed($0.shares) } ?? "")
+        _costText = State(initialValue: holding.map { Self.trimmed($0.costBasis) } ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("\(symbol) position") {
+                    HStack {
+                        Text("Shares")
+                        Spacer()
+                        TextField("0", text: $sharesText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    HStack {
+                        Text("Avg cost / share")
+                        Spacer()
+                        TextField("0.00", text: $costText)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+                if holding != nil {
+                    Section {
+                        Button("Remove position", role: .destructive) { onRemove() }
+                    }
+                }
+            }
+            .navigationTitle("Position")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onSave(Self.parse(sharesText), Self.parse(costText)) }
+                }
+            }
+        }
+    }
+
+    private static func parse(_ s: String) -> Double {
+        Double(s.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces)) ?? 0
+    }
+
+    private static func trimmed(_ v: Double) -> String {
+        v == v.rounded() ? String(Int(v)) : String(v)
     }
 }

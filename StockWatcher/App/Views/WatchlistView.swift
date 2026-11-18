@@ -110,6 +110,11 @@ struct QuoteRow: View {
                             .font(.caption.monospacedDigit())
                     }
                     .foregroundStyle(Color.forChange(q.isUp))
+                    if let h = HoldingsStore.shared.holding(symbol: item.symbol) {
+                        Text("P/L \(Fmt.signedPercent(h.gainPercent(at: q.price)))")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(Color.forChange(h.gain(at: q.price) >= 0))
+                    }
                 }
             } else {
                 ProgressView()

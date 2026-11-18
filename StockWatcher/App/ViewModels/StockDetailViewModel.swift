@@ -18,6 +18,8 @@ final class StockDetailViewModel: ObservableObject {
     @Published var isLoadingChart = false
     @Published var isLoadingRating = false
     @Published var errorMessage: String?
+    @Published var holding: Holding?
+    @Published var scoreHistory: [ScoreSample] = []
 
     private let service = YahooService.shared
 
@@ -25,6 +27,24 @@ final class StockDetailViewModel: ObservableObject {
         self.symbol = symbol
         self.name = name
         self.range = SettingsStore.shared.defaultRange
+        self.holding = HoldingsStore.shared.holding(symbol: symbol)
+        self.scoreHistory = ScoreHistoryStore.shared.history(symbol: symbol)
+    }
+
+    func saveHolding(shares: Double, costBasis: Double) {
+        if shares > 0 {
+            let h = Holding(symbol: symbol, shares: shares, costBasis: costBasis)
+            HoldingsStore.shared.save(h)
+            holding = h
+        } else {
+            HoldingsStore.shared.remove(symbol: symbol)
+            holding = nil
+        }
+    }
+
+    func removeHolding() {
+        HoldingsStore.shared.remove(symbol: symbol)
+        holding = nil
     }
 
     private func candleCacheKey(_ range: ChartRange) -> String {
@@ -91,9 +111,10 @@ final class StockDetailViewModel: ObservableObject {
         composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,
                                                 weights: SettingsStore.shared.weights)
 
-        // Record the score over time so we can show its trend later.
+        // Record the score over time so we can show its trend.
         if let c = composite {
             ScoreHistoryStore.shared.record(symbol: symbol, score: c.score)
+            scoreHistory = ScoreHistoryStore.shared.history(symbol: symbol)
         }
     }
 }

@@ -132,7 +132,7 @@ public final class YahooService: @unchecked Sendable {
 
     private func requestFundamentals(symbol: String, retryOnAuth: Bool) async throws -> Fundamentals {
         let crumb = try await crumbs.crumb(session: session, userAgent: Self.userAgent)
-        let modules = "summaryDetail,defaultKeyStatistics,financialData"
+        let modules = "summaryDetail,defaultKeyStatistics,financialData,calendarEvents"
         let encodedSymbol = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
         let encodedCrumb = crumb.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? crumb
         guard let url = URL(string:
@@ -213,6 +213,14 @@ public final class YahooService: @unchecked Sendable {
         f.recommendationKey = r.financialData?.recommendationKey
         f.numberOfAnalysts = r.financialData?.numberOfAnalystOpinions?.raw.map { Int($0) }
         f.targetMeanPrice = r.financialData?.targetMeanPrice?.raw
+        f.dividendRate = r.summaryDetail?.dividendRate?.raw
+
+        func date(_ epoch: Double?) -> Date? {
+            guard let epoch, epoch > 0 else { return nil }
+            return Date(timeIntervalSince1970: epoch)
+        }
+        f.exDividendDate = date(r.summaryDetail?.exDividendDate?.raw ?? r.calendarEvents?.exDividendDate?.raw)
+        f.nextEarningsDate = date(r.calendarEvents?.earnings?.earningsDate?.first?.raw)
         return f
     }
 }
