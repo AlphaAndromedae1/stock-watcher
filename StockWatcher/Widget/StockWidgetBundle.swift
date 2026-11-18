@@ -5,7 +5,6 @@ import SwiftUI
 struct StockWidgetBundle: WidgetBundle {
     var body: some Widget {
         StockWidget()
-        SingleStockWidget()
     }
 }
 
