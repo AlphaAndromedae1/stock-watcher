@@ -39,12 +39,25 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             clean build
 
-      - name: Upload unsigned .app
+      - name: Package unsigned .ipa (for sideloading via AltStore / Sideloadly)
+        working-directory: StockWatcher
+        run: |
+          set -euo pipefail
+          APP=$(find build/DD/Build/Products/Debug-iphoneos -maxdepth 1 -name '*.app' | head -1)
+          if [ -z "$APP" ]; then echo "No .app produced by the build"; exit 1; fi
+          echo "Packaging: $APP"
+          rm -rf build/ipa
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry StockWatcher-unsigned.ipa Payload)
+          ls -lh build/ipa/*.ipa
+
+      - name: Upload unsigned .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: StockWatcher-app-unsigned
-          path: StockWatcher/build/DD/Build/Products/Debug-iphoneos/*.app
-          if-no-files-found: warn
+          name: StockWatcher-unsigned-ipa
+          path: StockWatcher/build/ipa/StockWatcher-unsigned.ipa
+          if-no-files-found: error
 
       - name: Pick an available iPhone simulator
         id: sim
