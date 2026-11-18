@@ -28,11 +28,15 @@ struct SingleStockEntry: TimelineEntry {
     let spark: [Double]
     let hasData: Bool
 
+    static let sampleSpark: [Double] = [
+        158, 159, 160, 162, 161, 163, 165, 164, 166, 168, 167, 169,
+        171, 170, 172, 174, 173, 175, 176, 175, 177, 178, 177, 176.4
+    ]
+
     static let sample = SingleStockEntry(
         date: Date(), symbol: "RY", name: "Royal Bank of Canada",
         price: 176.42, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
-        spark: (0..<24).map { 160 + Double($0) * 0.7 + (($0 % 3 == 0) ? 1.5 : -1.0) },
-        hasData: true)
+        spark: sampleSpark, hasData: true)
 }
 
 // MARK: - Provider
