@@ -1,22 +1,15 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import UIKit
 
 // MARK: - Configuration intent
 
-/// Options come from the current watchlist (falls back to a few TSX blue chips).
-struct WatchlistSymbolsProvider: DynamicOptionsProvider {
-    func results() async throws -> [String] {
-        let symbols = WatchlistStore.shared.load().map(\.symbol)
-        return symbols.isEmpty ? ["RY.TO", "SHOP.TO", "ENB.TO", "TD.TO"] : symbols
-    }
-}
-
 struct SelectStockIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Select Stock"
-    static var description = IntentDescription("Choose which stock this widget tracks.")
 
-    @Parameter(title: "Stock", optionsProvider: WatchlistSymbolsProvider())
+    /// Yahoo symbol, e.g. "SHOP.TO". Empty uses the top of your watchlist.
+    @Parameter(title: "Symbol (e.g. SHOP.TO)")
     var symbol: String?
 }
 
