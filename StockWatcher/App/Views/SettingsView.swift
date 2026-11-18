@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct SettingsView: View {
     private let store = SettingsStore.shared
@@ -12,6 +13,12 @@ struct SettingsView: View {
     @State private var showClearedAlert = false
     @State private var alertsOn = SettingsStore.shared.alertsEnabled
     @State private var vixOn = SettingsStore.shared.vixAlertEnabled
+    @State private var featured = SettingsStore.shared.featuredSymbol ?? ""
+
+    private var watchlistSymbols: [String] { WatchlistStore.shared.load().map(\.symbol) }
+    private func displaySymbol(_ s: String) -> String {
+        s.replacingOccurrences(of: ".TO", with: "").replacingOccurrences(of: ".V", with: "")
+    }
 
     private var weightTotal: Double { max(wTechnical + wFundamental + wAnalyst + wTarget, 0.0001) }
 
@@ -46,6 +53,23 @@ struct SettingsView: View {
                     Text("Stock Watcher Score weights")
                 } footer: {
                     Text("How much each signal counts toward the 0–100 score. Shown as the normalized share.")
+                }
+
+                Section {
+                    Picker("Featured stock", selection: $featured) {
+                        Text("Auto (Top Pick)").tag("")
+                        ForEach(watchlistSymbols, id: \.self) { sym in
+                            Text(displaySymbol(sym)).tag(sym)
+                        }
+                    }
+                    .onChange(of: featured) { _, v in
+                        store.featuredSymbol = v.isEmpty ? nil : v
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
+                } header: {
+                    Text("Widget")
+                } footer: {
+                    Text("Which stock the Featured Stock widget shows. Takes effect when app↔widget sharing is active (App Debug shows “Active”); on free sideloads the widget shows the Top Pick instead.")
                 }
 
                 Section {

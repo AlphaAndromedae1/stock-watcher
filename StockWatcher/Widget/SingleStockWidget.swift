@@ -57,6 +57,13 @@ struct TopPickProvider: TimelineProvider {
     }
 
     static func load() async -> SingleStockEntry {
+        // If the user picked a specific stock in the app, show that one.
+        if let featured = SettingsStore.shared.featuredSymbol,
+           let entry = await loadOne(symbol: featured) {
+            return entry
+        }
+
+        // Otherwise feature the highest Stock Watcher Score in the watchlist.
         let symbols = Array(WatchlistStore.shared.load().prefix(6)).map(\.symbol)
         guard !symbols.isEmpty else { return .noData() }
 
@@ -100,12 +107,15 @@ struct SingleStockWidget: Widget {
         StaticConfiguration(kind: kind, provider: TopPickProvider()) { entry in
             SingleStockWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
-                                   startPoint: .top, endPoint: .bottom)
+                    ZStack {
+                        Rectangle().fill(.ultraThinMaterial)
+                        LinearGradient(colors: [Color.white.opacity(0.12), Color.clear, Color.black.opacity(0.10)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                    }
                 }
         }
-        .configurationDisplayName("Top Pick")
-        .description("Features the highest Stock Watcher Score in your watchlist.")
+        .configurationDisplayName("Featured Stock")
+        .description("Shows the stock you choose in the app, or the highest Stock Watcher Score.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -133,7 +143,7 @@ struct SingleStockWidgetView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("TOP PICK").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                    Text("FEATURED").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
                     Text(entry.symbol).font(.title3.bold())
                     Text(entry.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
@@ -143,7 +153,8 @@ struct SingleStockWidgetView: View {
                         .font(.subheadline.monospacedDigit().bold())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(bandColor(band), in: Capsule())
+                        .background(bandColor(band).gradient, in: Capsule())
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
                 }
             }
 

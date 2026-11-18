@@ -19,6 +19,16 @@ public final class SettingsStore: @unchecked Sendable {
         static let alertsEnabled = "settings.alertsEnabled"
         static let vixAlertEnabled = "settings.vixAlertEnabled"
         static let lastVixAlert = "settings.lastVixAlert"
+        static let featuredSymbol = "settings.featuredSymbol"
+    }
+
+    /// The stock the single-stock widget should feature. nil/empty = auto (Top Pick).
+    public var featuredSymbol: String? {
+        get {
+            let s = defaults.string(forKey: Key.featuredSymbol) ?? ""
+            return s.isEmpty ? nil : s
+        }
+        set { defaults.set(newValue ?? "", forKey: Key.featuredSymbol) }
     }
 
     public var refreshMinutes: Int {

@@ -42,8 +42,12 @@ struct StockWidgetEntryView: View {
         if family == .accessoryRectangular {
             Color.clear
         } else {
-            LinearGradient(colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
-                           startPoint: .top, endPoint: .bottom)
+            // Frosted "liquid glass"-style background (material + diagonal sheen).
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                LinearGradient(colors: [Color.white.opacity(0.12), Color.clear, Color.black.opacity(0.10)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
         }
     }
 
@@ -146,7 +150,8 @@ struct StockWidgetEntryView: View {
                 .frame(minWidth: 17)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 4)
-                .background(Color.band(band), in: Capsule())
+                .background(Color.band(band).gradient, in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
                 .accessibilityLabel("Score \(score), \(band.label)")
         } else {
             Color.clear.frame(width: 1)
@@ -192,7 +197,7 @@ struct StockWidgetEntryView: View {
                 if family != .systemSmall {
                     Text(band.label).font(.caption2.bold()).foregroundStyle(Color.mood(band))
                 }
-                Text("\(mood.headlineName) \(Fmt.number(value, decimals: value >= 30 ? 0 : 1))")
+                Text("\(mood.headlineName) Index \(Fmt.number(value, decimals: value >= 30 ? 0 : 1))")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
