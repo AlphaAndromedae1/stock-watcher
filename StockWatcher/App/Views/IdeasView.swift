@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct IdeasView: View {
     @StateObject private var model = IdeasViewModel()
@@ -7,6 +8,9 @@ struct IdeasView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    if !model.overview.isEmpty {
+                        overviewStrip
+                    }
                     if let mood = model.mood {
                         MarketMoodCard(mood: mood)
                     }
@@ -29,6 +33,28 @@ struct IdeasView: View {
         }
         .task { model.onAppear() }
         .refreshable { await model.refresh() }
+    }
+
+    private var overviewStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(model.overview) { item in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name).font(.caption2).foregroundStyle(.secondary)
+                        Text(Fmt.number(item.quote.price, decimals: item.quote.price > 1000 ? 0 : 2))
+                            .font(.subheadline.bold().monospacedDigit())
+                        Text(Fmt.signedPercent(item.quote.changePercent))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(Color.forChange(item.quote.isUp))
+                    }
+                    .frame(minWidth: 72, alignment: .leading)
+                    .padding(10)
+                    .background(Color(.secondarySystemGroupedBackground),
+                                in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+            .padding(.horizontal, 2)
+        }
     }
 
     private var recommendedCard: some View {

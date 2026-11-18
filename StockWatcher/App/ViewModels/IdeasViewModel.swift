@@ -15,11 +15,27 @@ final class IdeasViewModel: ObservableObject {
         var recommendation: Recommendation { rating.summary }
     }
 
+    struct OverviewItem: Identifiable, Sendable {
+        let name: String
+        let quote: Quote
+        var id: String { quote.symbol }
+    }
+
     @Published var mood: MarketMood?
+    @Published var overview: [OverviewItem] = []
     @Published var ideas: [Idea] = []          // sorted best-first
     @Published var isLoading = false
     @Published var progress: Double = 0
     @Published var lastUpdated: Date?
+
+    /// Macro gauges most relevant to a TSX investor.
+    private static let overviewSymbols: [(name: String, symbol: String)] = [
+        ("TSX", "^GSPTSE"),
+        ("S&P 500", "^GSPC"),
+        ("Oil WTI", "CL=F"),
+        ("Gold", "GC=F"),
+        ("USD/CAD", "CAD=X")
+    ]
 
     private let service = YahooService.shared
     private var hasLoaded = false
@@ -40,8 +56,26 @@ final class IdeasViewModel: ObservableObject {
         defer { isLoading = false; hasLoaded = true; lastUpdated = Date() }
 
         async let moodTask = StockMood.load()
+        async let overviewTask = Self.loadOverview()
         await scan()
         mood = await moodTask
+        overview = await overviewTask
+    }
+
+    nonisolated static func loadOverview() async -> [OverviewItem] {
+        let items = await withTaskGroup(of: OverviewItem?.self) { group -> [OverviewItem] in
+            for pair in overviewSymbols {
+                group.addTask {
+                    guard let q = try? await YahooService.shared.fetchQuote(symbol: pair.symbol) else { return nil }
+                    return OverviewItem(name: pair.name, quote: q)
+                }
+            }
+            var out: [OverviewItem] = []
+            for await item in group { if let item { out.append(item) } }
+            return out
+        }
+        // Preserve the configured order.
+        return overviewSymbols.compactMap { pair in items.first { $0.quote.symbol == pair.symbol } }
     }
 
     private func scan() async {

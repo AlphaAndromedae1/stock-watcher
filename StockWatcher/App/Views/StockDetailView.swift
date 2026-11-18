@@ -31,6 +31,7 @@ struct StockDetailView: View {
                     breakdownCard(title: "Moving Averages", group: rating.movingAverages)
                 }
                 fundamentalsCard
+                newsCard
                 disclaimer
             }
             .padding()
@@ -404,6 +405,44 @@ struct StockDetailView: View {
             Text(value).font(.subheadline.monospacedDigit())
         }
         .padding(.vertical, 2)
+    }
+
+    // MARK: News
+
+    @ViewBuilder
+    private var newsCard: some View {
+        if !model.news.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("News").font(.headline)
+                    ForEach(model.news) { item in
+                        if let url = item.link {
+                            Link(destination: url) { newsRow(item) }
+                                .buttonStyle(.plain)
+                        } else {
+                            newsRow(item)
+                        }
+                        if item.id != model.news.last?.id { Divider().opacity(0.4) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func newsRow(_ item: NewsItem) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title).font(.subheadline).lineLimit(3)
+                if let d = item.date {
+                    Text(d, format: .relative(presentation: .named))
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "arrow.up.right.square")
+                .font(.caption).foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
     }
 
     // MARK: misc

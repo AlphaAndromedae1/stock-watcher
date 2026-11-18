@@ -20,6 +20,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var holding: Holding?
     @Published var scoreHistory: [ScoreSample] = []
+    @Published var news: [NewsItem] = []
 
     private let service = YahooService.shared
 
@@ -54,8 +55,14 @@ final class StockDetailViewModel: ObservableObject {
     func loadAll() async {
         async let chart: Void = loadChart()
         async let analysis: Void = loadRatingAndFundamentals()
+        async let newsLoad: Void = loadNews()
         await chart
         await analysis
+        await newsLoad
+    }
+
+    func loadNews() async {
+        news = await NewsService.shared.fetch(symbol: symbol)
     }
 
     func setRange(_ newRange: ChartRange) {
