@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var wAnalyst = SettingsStore.shared.weights.analyst
     @State private var wTarget = SettingsStore.shared.weights.target
     @State private var showClearedAlert = false
+    @State private var alertsOn = SettingsStore.shared.alertsEnabled
+    @State private var vixOn = SettingsStore.shared.vixAlertEnabled
 
     private var weightTotal: Double { max(wTechnical + wFundamental + wAnalyst + wTarget, 0.0001) }
 
@@ -44,6 +46,34 @@ struct SettingsView: View {
                     Text("Stock Watcher Score weights")
                 } footer: {
                     Text("How much each signal counts toward the 0–100 score. Shown as the normalized share.")
+                }
+
+                Section {
+                    Toggle("Enable alerts", isOn: $alertsOn)
+                        .onChange(of: alertsOn) { _, on in
+                            if on {
+                                Task { @MainActor in
+                                    let granted = await NotificationManager.shared.requestAuthorization()
+                                    alertsOn = granted
+                                    store.alertsEnabled = granted
+                                    if granted { AppBackground.schedule() }
+                                }
+                            } else {
+                                store.alertsEnabled = false
+                            }
+                        }
+                    Toggle("Market fear (VIX) alert", isOn: $vixOn)
+                        .disabled(!alertsOn)
+                        .onChange(of: vixOn) { _, v in store.vixAlertEnabled = v }
+                    NavigationLink {
+                        AlertsListView()
+                    } label: {
+                        Label("Manage alerts", systemImage: "bell.badge")
+                    }
+                } header: {
+                    Text("Alerts")
+                } footer: {
+                    Text("Price and rating alerts are checked in the background and delivered as notifications. Add them from any stock's detail screen.")
                 }
 
                 Section("Cache") {
@@ -126,4 +156,46 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+}
+
+struct AlertsListView: View {
+    @State private var alerts = AlertStore.shared.all()
+
+    var body: some View {
+        List {
+            if alerts.isEmpty {
+                ContentUnavailableView("No alerts", systemImage: "bell.slash",
+                                       description: Text("Add alerts from a stock's detail screen."))
+            } else {
+                ForEach(alerts) { a in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(a.symbolDisplay).font(.headline)
+                            Text(a.describe).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: enabledBinding(a)).labelsHidden()
+                    }
+                }
+                .onDelete { indexSet in
+                    for i in indexSet { AlertStore.shared.remove(id: alerts[i].id) }
+                    reload()
+                }
+            }
+        }
+        .navigationTitle("Alerts")
+        .toolbar { if !alerts.isEmpty { EditButton() } }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() { alerts = AlertStore.shared.all() }
+
+    private func enabledBinding(_ a: PriceAlert) -> Binding<Bool> {
+        Binding(
+            get: { a.enabled },
+            set: { on in
+                var copy = a; copy.enabled = on
+                AlertStore.shared.update(copy); reload()
+            })
+    }
 }

@@ -12,6 +12,16 @@ lock‑screen widget** for tracking your watchlist at a glance.
   ranked best-first.
 - **Market Mood** — a VIX / VIXC (TSX) "fear gauge" read with a calm→panic band, on the
   Ideas tab and in the widget header.
+- **Holdings & P/L** — enter shares + average cost to track gains/losses on the detail
+  screen and watchlist.
+- **Price & rating alerts** — local notifications (checked via background refresh) when a
+  price is crossed, a rating turns Buy/Sell, or market fear (VIX) spikes.
+- **Charts** — line or candlestick price chart with RSI(14) and MACD(12,26,9) subpanels.
+- **Market overview** — TSX Composite, S&P 500, WTI oil, gold and USD/CAD strip.
+- **News & key dates** — recent headlines (Yahoo RSS) plus next earnings and ex-dividend dates.
+- **Single-stock widget** — a configurable widget for one chosen stock (price, score, sparkline).
+- **Settings + App Debug** — refresh interval, default range, tunable score weights, offline
+  cache, and a diagnostics screen (App Group status, connectivity test).
 - **Price chart** with selectable ranges (1D–5Y) via Swift Charts.
 - **Fundamentals** (best‑effort) — P/E, PEG, margins, ROE, debt, growth, dividend,
   beta, 52‑week range, analyst consensus and mean target — with plain‑English checks.

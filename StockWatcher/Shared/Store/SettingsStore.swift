@@ -17,6 +17,8 @@ public final class SettingsStore: @unchecked Sendable {
         static let wAnalyst = "settings.weight.analyst"
         static let wTarget = "settings.weight.target"
         static let alertsEnabled = "settings.alertsEnabled"
+        static let vixAlertEnabled = "settings.vixAlertEnabled"
+        static let lastVixAlert = "settings.lastVixAlert"
     }
 
     public var refreshMinutes: Int {
@@ -56,6 +58,16 @@ public final class SettingsStore: @unchecked Sendable {
     public var alertsEnabled: Bool {
         get { defaults.object(forKey: Key.alertsEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.alertsEnabled) }
+    }
+
+    public var vixAlertEnabled: Bool {
+        get { defaults.object(forKey: Key.vixAlertEnabled) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Key.vixAlertEnabled) }
+    }
+
+    public var lastVixAlert: Date? {
+        get { defaults.object(forKey: Key.lastVixAlert) as? Date }
+        set { defaults.set(newValue, forKey: Key.lastVixAlert) }
     }
 
     public func resetWeights() { weights = .default }

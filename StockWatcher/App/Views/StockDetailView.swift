@@ -8,6 +8,9 @@ struct StockDetailView: View {
     @State private var inWatchlist: Bool
     @State private var showPositionEditor = false
     @State private var chartStyle: ChartStyleKind = .line
+    @State private var alerts: [PriceAlert] = []
+    @State private var showAddPrice = false
+    @State private var addKind: PriceAlert.Kind = .priceAbove
 
     init(symbol: String, name: String) {
         _model = StateObject(wrappedValue: StockDetailViewModel(symbol: symbol, name: name))
@@ -27,6 +30,7 @@ struct StockDetailView: View {
                 ratingCard
                 chartCard
                 positionCard
+                alertsCard
                 if let rating = model.rating {
                     breakdownCard(title: "Oscillators", group: rating.oscillators)
                     breakdownCard(title: "Moving Averages", group: rating.movingAverages)
@@ -49,7 +53,22 @@ struct StockDetailView: View {
                 .accessibilityLabel(inWatchlist ? "Remove from watchlist" : "Add to watchlist")
             }
         }
-        .task { await model.loadAll() }
+        .task {
+            reloadAlerts()
+            await model.loadAll()
+        }
+        .sheet(isPresented: $showAddPrice) {
+            AddPriceAlertSheet(
+                symbol: displaySymbol,
+                kind: addKind,
+                suggested: model.quote?.price ?? 0,
+                onSave: { value in
+                    AlertStore.shared.add(PriceAlert(symbol: model.symbol, name: model.name,
+                                                     kind: addKind, threshold: value))
+                    reloadAlerts()
+                    showAddPrice = false
+                })
+        }
         .sheet(isPresented: $showPositionEditor) {
             PositionEditor(
                 symbol: displaySymbol,
@@ -63,6 +82,76 @@ struct StockDetailView: View {
                     showPositionEditor = false
                 })
         }
+    }
+
+    // MARK: Alerts
+
+    private var alertsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Alerts").font(.headline)
+                    Spacer()
+                    if !SettingsStore.shared.alertsEnabled {
+                        Text("Off").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if !SettingsStore.shared.alertsEnabled {
+                    Text("Turn on notifications in Settings for these to fire.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                Toggle("Notify on Buy signal", isOn: ratingBinding(.ratingBuy))
+                    .font(.subheadline)
+                Toggle("Notify on Sell signal", isOn: ratingBinding(.ratingSell))
+                    .font(.subheadline)
+
+                let priceAlerts = alerts.filter { $0.kind == .priceAbove || $0.kind == .priceBelow }
+                if !priceAlerts.isEmpty {
+                    Divider()
+                    ForEach(priceAlerts) { a in
+                        HStack {
+                            Image(systemName: a.kind == .priceAbove ? "arrow.up.circle" : "arrow.down.circle")
+                                .foregroundStyle(.secondary)
+                            Text(a.describe).font(.subheadline)
+                            Spacer()
+                            Button(role: .destructive) {
+                                AlertStore.shared.remove(id: a.id); reloadAlerts()
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+
+                Divider()
+                HStack {
+                    Button { addKind = .priceAbove; showAddPrice = true } label: {
+                        Label("Price above", systemImage: "arrow.up")
+                    }
+                    Spacer()
+                    Button { addKind = .priceBelow; showAddPrice = true } label: {
+                        Label("Price below", systemImage: "arrow.down")
+                    }
+                }
+                .font(.subheadline)
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private func ratingBinding(_ kind: PriceAlert.Kind) -> Binding<Bool> {
+        Binding(
+            get: { AlertStore.shared.hasRatingAlert(symbol: model.symbol, kind: kind) },
+            set: { on in
+                AlertStore.shared.setRatingAlert(symbol: model.symbol, name: model.name, kind: kind, on: on)
+                reloadAlerts()
+            })
+    }
+
+    private func reloadAlerts() {
+        alerts = AlertStore.shared.alerts(for: model.symbol)
     }
 
     // MARK: Position / P&L
@@ -575,5 +664,53 @@ struct PositionEditor: View {
 
     private static func trimmed(_ v: Double) -> String {
         v == v.rounded() ? String(Int(v)) : String(v)
+    }
+}
+
+/// Sheet to enter a price threshold for a price alert.
+struct AddPriceAlertSheet: View {
+    let symbol: String
+    let kind: PriceAlert.Kind
+    let suggested: Double
+    let onSave: (Double) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+
+    init(symbol: String, kind: PriceAlert.Kind, suggested: Double, onSave: @escaping (Double) -> Void) {
+        self.symbol = symbol
+        self.kind = kind
+        self.suggested = suggested
+        self.onSave = onSave
+        _text = State(initialValue: suggested > 0 ? String(format: "%.2f", suggested) : "")
+    }
+
+    private var title: String { kind == .priceAbove ? "Alert when above" : "Alert when below" }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("\(symbol) — \(title)") {
+                    HStack {
+                        Text("Price")
+                        Spacer()
+                        TextField("0.00", text: $text)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+            }
+            .navigationTitle("New Alert")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let v = Double(text.replacingOccurrences(of: ",", with: "")) ?? 0
+                        if v > 0 { onSave(v) } else { dismiss() }
+                    }
+                }
+            }
+        }
     }
 }
