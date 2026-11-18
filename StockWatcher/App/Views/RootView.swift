@@ -17,6 +17,9 @@ struct RootView: View {
 
             LearnView()
                 .tabItem { Label("Learn", systemImage: "book.fill") }
+
+            SettingsView()
+                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
     }
 }

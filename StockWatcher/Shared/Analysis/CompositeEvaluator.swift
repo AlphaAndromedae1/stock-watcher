@@ -12,6 +12,25 @@ import Foundation
 /// an algorithmic blend to focus research, NOT advice or a price prediction.
 public enum CompositeEvaluator {
 
+    /// Relative weights for the blend. Need not sum to 1 — they're renormalized
+    /// over whatever components are actually available.
+    public struct Weights: Sendable, Equatable {
+        public var technical: Double
+        public var fundamental: Double
+        public var analyst: Double
+        public var target: Double
+
+        public init(technical: Double, fundamental: Double, analyst: Double, target: Double) {
+            self.technical = technical
+            self.fundamental = fundamental
+            self.analyst = analyst
+            self.target = target
+        }
+
+        public static let `default` = Weights(technical: 0.40, fundamental: 0.40,
+                                               analyst: 0.15, target: 0.05)
+    }
+
     public enum Band: Int, Sendable, CaseIterable {
         case veryBearish, bearish, mixed, bullish, veryBullish
 
@@ -42,23 +61,24 @@ public enum CompositeEvaluator {
 
     public static func evaluate(technical: TechnicalRating?,
                                 fundamentals: Fundamentals,
-                                quote: Quote?) -> Result? {
+                                quote: Quote?,
+                                weights: Weights = .default) -> Result? {
         var comps: [Component] = []
 
         if let t = technical {
             let s = clamp((t.summaryAverage + 1) / 2 * 100)
-            comps.append(Component(label: "Technicals", score: s, weight: 0.40,
+            comps.append(Component(label: "Technicals", score: s, weight: weights.technical,
                                    detail: t.summary.label))
         }
 
         if let h = FundamentalAnalyzer.healthScore(fundamentals) {
-            comps.append(Component(label: "Fundamentals", score: Double(h), weight: 0.40,
+            comps.append(Component(label: "Fundamentals", score: Double(h), weight: weights.fundamental,
                                    detail: "Health \(h)/100"))
         }
 
         if let key = fundamentals.recommendationKey, let s = analystScore(key) {
             let pretty = key.replacingOccurrences(of: "_", with: " ").capitalized
-            comps.append(Component(label: "Analyst consensus", score: s, weight: 0.15,
+            comps.append(Component(label: "Analyst consensus", score: s, weight: weights.analyst,
                                    detail: pretty))
         }
 
@@ -66,7 +86,7 @@ public enum CompositeEvaluator {
             let upside = (target - price) / price
             // Map -20% -> 0, +30% -> 100.
             let s = clamp((upside + 0.20) / 0.50 * 100)
-            comps.append(Component(label: "Analyst target", score: s, weight: 0.05,
+            comps.append(Component(label: "Analyst target", score: s, weight: weights.target,
                                    detail: String(format: "%+.0f%% to mean target", upside * 100)))
         }
 

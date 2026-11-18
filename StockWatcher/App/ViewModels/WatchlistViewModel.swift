@@ -12,9 +12,17 @@ final class WatchlistViewModel: ObservableObject {
     private let store = WatchlistStore.shared
     private let service = YahooService.shared
 
+    private let cacheKey = "watchlist.quotes"
+
     func onAppear() {
         items = store.load()
-        if quotes.isEmpty { Task { await refresh() } }
+        if quotes.isEmpty {
+            // Show last-known quotes instantly (also works offline), then refresh.
+            if let cached = DataCache.shared.load([String: Quote].self, key: cacheKey) {
+                quotes = cached
+            }
+            Task { await refresh() }
+        }
     }
 
     func refresh() async {
@@ -23,7 +31,10 @@ final class WatchlistViewModel: ObservableObject {
         isLoading = true
         let results = await service.fetchQuotes(symbols: items.map(\.symbol))
         for q in results { quotes[q.symbol] = q }
-        lastUpdated = Date()
+        if !results.isEmpty {
+            DataCache.shared.save(quotes, key: cacheKey)
+            lastUpdated = Date()
+        }
         isLoading = false
     }
 

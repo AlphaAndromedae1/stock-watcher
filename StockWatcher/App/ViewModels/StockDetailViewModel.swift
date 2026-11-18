@@ -24,6 +24,11 @@ final class StockDetailViewModel: ObservableObject {
     init(symbol: String, name: String) {
         self.symbol = symbol
         self.name = name
+        self.range = SettingsStore.shared.defaultRange
+    }
+
+    private func candleCacheKey(_ range: ChartRange) -> String {
+        "candles.\(symbol).\(range.rawValue)"
     }
 
     func loadAll() async {
@@ -42,13 +47,23 @@ final class StockDetailViewModel: ObservableObject {
     func loadChart() async {
         isLoadingChart = true
         defer { isLoadingChart = false }
+        // Show cached candles instantly (also offline) while fresh data loads.
+        if chartCandles.isEmpty,
+           let cached = DataCache.shared.load([Candle].self, key: candleCacheKey(range)) {
+            chartCandles = cached
+        }
         do {
             let (candles, meta) = try await service.fetchCandles(symbol: symbol, range: range)
             chartCandles = candles
             quote = YahooService.quote(from: meta, fallbackSymbol: symbol)
             errorMessage = nil
+            if !candles.isEmpty {
+                DataCache.shared.save(candles, key: candleCacheKey(range))
+            }
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if chartCandles.isEmpty {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
 
@@ -72,7 +87,13 @@ final class StockDetailViewModel: ObservableObject {
         fundamentalChecks = FundamentalAnalyzer.evaluate(f)
         healthScore = FundamentalAnalyzer.healthScore(f)
 
-        // Custom Stock Watcher Score blends everything we have.
-        composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote)
+        // Custom Stock Watcher Score blends everything we have (user-tunable weights).
+        composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,
+                                                weights: SettingsStore.shared.weights)
+
+        // Record the score over time so we can show its trend later.
+        if let c = composite {
+            ScoreHistoryStore.shared.record(symbol: symbol, score: c.score)
+        }
     }
 }
