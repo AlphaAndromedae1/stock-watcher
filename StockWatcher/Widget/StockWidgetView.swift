@@ -117,25 +117,23 @@ struct StockWidgetEntryView: View {
     }
 
     private func rowView(_ row: WidgetRow) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.symbol)
-                    .font(.subheadline.bold())
+                    .font(.headline.bold())
                 Text(row.name)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
             }
             Spacer(minLength: 4)
-            VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 1) {
                 Text(row.hasData ? Fmt.number(row.price) : "—")
-                    .font(.subheadline.monospacedDigit())
-                HStack(spacing: 5) {
-                    changeBadge(row)
-                    scoreChip(row)
-                }
+                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                changeBadge(row)
             }
+            scoreChip(row)
         }
     }
 
@@ -143,12 +141,15 @@ struct StockWidgetEntryView: View {
     private func scoreChip(_ row: WidgetRow) -> some View {
         if let score = row.score, let band = row.band {
             Text("\(score)")
-                .font(.caption2.monospacedDigit().bold())
+                .font(.caption.monospacedDigit().bold())
                 .foregroundStyle(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
+                .frame(minWidth: 17)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
                 .background(Color.band(band), in: Capsule())
                 .accessibilityLabel("Score \(score), \(band.label)")
+        } else {
+            Color.clear.frame(width: 1)
         }
     }
 

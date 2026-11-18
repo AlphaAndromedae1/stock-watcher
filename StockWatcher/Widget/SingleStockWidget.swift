@@ -1,18 +1,11 @@
 import WidgetKit
 import SwiftUI
-import AppIntents
 import UIKit
 
-// MARK: - Configuration intent (matches Apple's AppIntents widget template)
-
-struct SelectStockIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource { "Select Stock" }
-    static var description: IntentDescription { "Choose which stock this widget tracks." }
-
-    /// Yahoo symbol, e.g. "SHOP.TO".
-    @Parameter(title: "Symbol", default: "RY.TO")
-    var symbol: String
-}
+// A "Top Pick" single-stock widget. It uses a plain StaticConfiguration +
+// TimelineProvider (no AppIntents): AppIntent-configured widgets frequently get
+// stuck on their placeholder on iOS 17 / sideloaded builds, so this reliably
+// loads. It features the highest Stock Watcher Score in the watchlist.
 
 // MARK: - Entry
 
@@ -37,35 +30,56 @@ struct SingleStockEntry: TimelineEntry {
         date: Date(), symbol: "RY", name: "Royal Bank of Canada",
         price: 176.42, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
         spark: sampleSpark, hasData: true)
+
+    static func noData(_ display: String = "—", name: String = "No data") -> SingleStockEntry {
+        SingleStockEntry(date: Date(), symbol: display, name: name, price: 0,
+                         changePercent: 0, isUp: true, score: nil, band: nil,
+                         spark: [], hasData: false)
+    }
 }
 
 // MARK: - Provider
 
-struct SingleStockProvider: AppIntentTimelineProvider {
+struct TopPickProvider: TimelineProvider {
     func placeholder(in context: Context) -> SingleStockEntry { .sample }
 
-    func snapshot(for configuration: SelectStockIntent, in context: Context) async -> SingleStockEntry {
-        if context.isPreview { return .sample }
-        return await Self.load(symbol: configuration.symbol)
+    func getSnapshot(in context: Context, completion: @escaping (SingleStockEntry) -> Void) {
+        if context.isPreview { completion(.sample); return }
+        Task { completion(await Self.load()) }
     }
 
-    func timeline(for configuration: SelectStockIntent, in context: Context) async -> Timeline<SingleStockEntry> {
-        let entry = await Self.load(symbol: configuration.symbol)
-        let next = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
-        return Timeline(entries: [entry], policy: .after(next))
+    func getTimeline(in context: Context, completion: @escaping (Timeline<SingleStockEntry>) -> Void) {
+        Task {
+            let entry = await Self.load()
+            let next = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
+            completion(Timeline(entries: [entry], policy: .after(next)))
+        }
     }
 
-    static func load(symbol configured: String) async -> SingleStockEntry {
-        let symbol = configured.isEmpty ? (WatchlistStore.shared.load().first?.symbol ?? "RY.TO") : configured
+    static func load() async -> SingleStockEntry {
+        let symbols = Array(WatchlistStore.shared.load().prefix(6)).map(\.symbol)
+        guard !symbols.isEmpty else { return .noData() }
+
+        let entries = await withTaskGroup(of: SingleStockEntry?.self) { group -> [SingleStockEntry] in
+            for symbol in symbols {
+                group.addTask { await loadOne(symbol: symbol) }
+            }
+            var out: [SingleStockEntry] = []
+            for await entry in group {
+                if let entry, entry.hasData { out.append(entry) }
+            }
+            return out
+        }
+
+        // Feature the highest Stock Watcher Score.
+        return entries.max(by: { ($0.score ?? -1) < ($1.score ?? -1) }) ?? .noData()
+    }
+
+    static func loadOne(symbol: String) async -> SingleStockEntry? {
         let display = symbol.replacingOccurrences(of: ".TO", with: "").replacingOccurrences(of: ".V", with: "")
         let name = TSXCatalog.name(for: symbol) ?? display
-
         guard let result = try? await YahooService.shared.fetchCandles(symbol: symbol, range: .oneYear),
-              !result.candles.isEmpty else {
-            return SingleStockEntry(date: Date(), symbol: display, name: name, price: 0,
-                                    changePercent: 0, isUp: true, score: nil, band: nil,
-                                    spark: [], hasData: false)
-        }
+              !result.candles.isEmpty else { return nil }
         let quote = YahooService.quote(from: result.meta, fallbackSymbol: symbol)
         let rating = TechnicalAnalyzer.analyze(result.candles)
         let composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: Fundamentals(), quote: quote)
@@ -83,15 +97,15 @@ struct SingleStockWidget: Widget {
     let kind = "SingleStockWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: SelectStockIntent.self, provider: SingleStockProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: TopPickProvider()) { entry in
             SingleStockWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
                     LinearGradient(colors: [Color(.systemBackground), Color(.secondarySystemBackground)],
                                    startPoint: .top, endPoint: .bottom)
                 }
         }
-        .configurationDisplayName("Single Stock")
-        .description("Track one stock with price, daily change and its Stock Watcher Score.")
+        .configurationDisplayName("Top Pick")
+        .description("Features the highest Stock Watcher Score in your watchlist.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -117,17 +131,18 @@ struct SingleStockWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(entry.symbol).font(.headline.bold())
+                    Text("TOP PICK").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                    Text(entry.symbol).font(.title3.bold())
                     Text(entry.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
                 if let score = entry.score, let band = entry.band {
                     Text("\(score)")
-                        .font(.caption.monospacedDigit().bold())
+                        .font(.subheadline.monospacedDigit().bold())
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(bandColor(band), in: Capsule())
                 }
             }
@@ -141,12 +156,12 @@ struct SingleStockWidgetView: View {
                 }
                 .foregroundStyle(changeColor)
             } else {
-                Text("—").foregroundStyle(.secondary)
+                Text("Add stocks in the app").font(.caption).foregroundStyle(.secondary)
             }
 
             Spacer(minLength: 2)
             Sparkline(values: entry.spark, color: changeColor)
-                .frame(height: 28)
+                .frame(height: 30)
         }
     }
 }
