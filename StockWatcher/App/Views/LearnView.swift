@@ -35,6 +35,15 @@ struct LearnView: View {
                         }
                     }
 
+                    Card {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("How Market Mood works", systemImage: "gauge.medium")
+                                .font(.headline)
+                            Text(LocalizedStringKey(LearnContent.moodExplainer))
+                                .font(.subheadline)
+                        }
+                    }
+
                     Text(LearnContent.disclaimer)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -99,6 +108,13 @@ enum LearnContent {
             "**Technicals** (trend, moving averages, RSI/MACD) help with *entry timing* — they don't tell you if the business is good.",
             "**Use them as a tiebreaker,** not the whole decision. This app's buy/sell gauge is a technical signal.",
             "**Beware the news cycle:** price already reflects what everyone knows. Edge comes from a differentiated, well-reasoned view."
+        ]),
+        Topic(title: "Market mood & fear (VIX)", icon: "gauge.medium", points: [
+            "**VIX is the \u{201C}fear gauge\u{201D}** — the S&P 500's expected 30-day volatility priced into options. It rises when investors get nervous and spikes when they panic. For Canada, the equivalent is **VIXC** (S&P/TSX 60).",
+            "**Rough levels:** under ~15 calm, 15–20 normal, 20–28 guarded, 28–38 fearful, 38+ panic — the same bands the Ideas tab's Market Mood card uses.",
+            "**It's market-wide, not per-stock.** It tells you the weather, not whether one company is a buy.",
+            "**Extremes tend to be contrarian:** a very high VIX often marks capitulation near market *bottoms* — usually the worst moment to sell in a panic.",
+            "**It's not the only signal.** Also watch the put/call ratio, the CNN Fear & Greed Index, widening credit spreads, weak market breadth, and money fleeing into gold and bonds."
         ])
     ]
 
@@ -106,6 +122,12 @@ enum LearnContent {
     The **buy/sell gauge** aggregates 11 oscillators (RSI, MACD, Stochastic, CCI, ADX and more) and up to 15 moving averages into a single reading — the same methodology TradingView uses. Each indicator votes Buy, Sell or Neutral; the votes are averaged and bucketed into **Strong Sell → Strong Buy**.
 
     It is a **momentum/trend signal computed from price only**. It does *not* read the balance sheet. Pair it with the **Fundamentals** section and the checklist above before acting.
+    """
+
+    static let moodExplainer = """
+    The **Market Mood** card (Ideas tab) and the widget header read **VIX** — and **VIXC** for the TSX when available — and map it to a calm → panic band. Green means low fear or complacency; red means panic.
+
+    Treat it as *context, not a trigger*: it frames how stressed the whole market is, which can inform position sizing and whether to wait for calmer conditions. A falling VIX (shown in green) means fear is easing; a rising one means it's building.
     """
 
     static let disclaimer = """
