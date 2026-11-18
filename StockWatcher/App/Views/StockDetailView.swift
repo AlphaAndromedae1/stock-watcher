@@ -24,20 +24,24 @@ struct StockDetailView: View {
                 if let error = model.errorMessage, model.rating == nil {
                     errorCard(error)
                 }
-                if model.composite != nil {
-                    scoreCard
+                Group {
+                    if model.composite != nil { scoreCard }
+                    ratingCard
+                    chartCard
                 }
-                ratingCard
-                chartCard
-                positionCard
-                alertsCard
+                Group {
+                    positionCard
+                    alertsCard
+                }
                 if let rating = model.rating {
                     breakdownCard(title: "Oscillators", group: rating.oscillators)
                     breakdownCard(title: "Moving Averages", group: rating.movingAverages)
                 }
-                fundamentalsCard
-                newsCard
-                disclaimer
+                Group {
+                    fundamentalsCard
+                    newsCard
+                    disclaimer
+                }
             }
             .padding()
         }
