@@ -7,6 +7,7 @@ struct StockDetailView: View {
     @StateObject private var model: StockDetailViewModel
     @State private var inWatchlist: Bool
     @State private var showPositionEditor = false
+    @State private var chartStyle: ChartStyleKind = .line
 
     init(symbol: String, name: String) {
         _model = StateObject(wrappedValue: StockDetailViewModel(symbol: symbol, name: name))
@@ -255,6 +256,13 @@ struct StockDetailView: View {
                 }
                 .pickerStyle(.segmented)
 
+                Picker("Style", selection: $chartStyle) {
+                    ForEach(ChartStyleKind.allCases, id: \.self) { s in
+                        Text(s.rawValue).tag(s)
+                    }
+                }
+                .pickerStyle(.segmented)
+
                 if model.chartCandles.isEmpty {
                     if model.isLoadingChart {
                         ProgressView().frame(height: 200)
@@ -262,8 +270,18 @@ struct StockDetailView: View {
                         Text("No chart data.").foregroundStyle(.secondary).frame(height: 200)
                     }
                 } else {
-                    PriceChartView(candles: model.chartCandles)
-                        .opacity(model.isLoadingChart ? 0.4 : 1)
+                    Group {
+                        if chartStyle == .line {
+                            PriceChartView(candles: model.chartCandles)
+                        } else {
+                            CandleChartView(candles: model.chartCandles)
+                        }
+                    }
+                    .opacity(model.isLoadingChart ? 0.4 : 1)
+
+                    Divider()
+                    RSIChartView(candles: model.chartCandles)
+                    MACDChartView(candles: model.chartCandles)
                 }
             }
         }
@@ -473,6 +491,11 @@ struct StockDetailView: View {
         inWatchlist.toggle()
         WidgetCenter.shared.reloadAllTimelines()
     }
+}
+
+enum ChartStyleKind: String, CaseIterable {
+    case line = "Line"
+    case candles = "Candles"
 }
 
 /// Simple rounded card container.
