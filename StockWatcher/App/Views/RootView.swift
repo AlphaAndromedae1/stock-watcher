@@ -6,6 +6,9 @@ struct RootView: View {
             WatchlistView()
                 .tabItem { Label("Watchlist", systemImage: "star.fill") }
 
+            IdeasView()
+                .tabItem { Label("Ideas", systemImage: "sparkles") }
+
             NavigationStack {
                 SearchView()
                     .navigationTitle("Search")

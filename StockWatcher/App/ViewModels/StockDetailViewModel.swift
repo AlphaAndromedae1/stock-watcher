@@ -12,6 +12,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var fundamentals = Fundamentals()
     @Published var fundamentalChecks: [FundamentalAnalyzer.Check] = []
     @Published var healthScore: Int?
+    @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
     @Published var isLoadingChart = false
@@ -70,5 +71,8 @@ final class StockDetailViewModel: ObservableObject {
         fundamentals = f
         fundamentalChecks = FundamentalAnalyzer.evaluate(f)
         healthScore = FundamentalAnalyzer.healthScore(f)
+
+        // Custom Stock Watcher Score blends everything we have.
+        composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote)
     }
 }

@@ -6,6 +6,12 @@ lock‑screen widget** for tracking your watchlist at a glance.
 
 - **Technical rating** — 11 oscillators + up to 15 moving averages aggregated into
   **Strong Sell → Strong Buy**, the same methodology TradingView's "Technicals" uses.
+- **Stock Watcher Score** — a custom 0–100 composite blending technicals, fundamentals,
+  analyst consensus and target upside, shown on the detail screen *and* in the widget.
+- **Ideas tab** — scans the TSX catalog and surfaces algorithmic **Recommended Buys**,
+  ranked best-first.
+- **Market Mood** — a VIX / VIXC (TSX) "fear gauge" read with a calm→panic band, on the
+  Ideas tab and in the widget header.
 - **Price chart** with selectable ranges (1D–5Y) via Swift Charts.
 - **Fundamentals** (best‑effort) — P/E, PEG, margins, ROE, debt, growth, dividend,
   beta, 52‑week range, analyst consensus and mean target — with plain‑English checks.

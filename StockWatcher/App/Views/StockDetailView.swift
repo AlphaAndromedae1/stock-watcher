@@ -18,6 +18,9 @@ struct StockDetailView: View {
                 if let error = model.errorMessage, model.rating == nil {
                     errorCard(error)
                 }
+                if model.composite != nil {
+                    scoreCard
+                }
                 ratingCard
                 chartCard
                 if let rating = model.rating {
@@ -73,6 +76,51 @@ struct StockDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    // MARK: Stock Watcher Score (custom composite)
+
+    private var scoreCard: some View {
+        Card {
+            if let c = model.composite {
+                VStack(spacing: 14) {
+                    HStack {
+                        Text("Stock Watcher Score").font(.headline)
+                        Spacer()
+                        Text(c.band.label)
+                            .font(.subheadline.bold())
+                            .foregroundStyle(c.band.color)
+                    }
+                    HStack(alignment: .center, spacing: 18) {
+                        ScoreRing(score: c.score, color: c.band.color)
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(c.components) { comp in
+                                componentBar(comp, tint: c.band.color)
+                            }
+                        }
+                    }
+                    Text("A weighted blend of the signals below — research aid, not advice.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func componentBar(_ comp: CompositeEvaluator.Component, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(comp.label).font(.caption.weight(.medium))
+                Spacer()
+                Text(comp.detail).font(.caption2).foregroundStyle(.secondary)
+                Text("\(Int(comp.score))")
+                    .font(.caption.monospacedDigit().bold())
+                    .frame(minWidth: 26, alignment: .trailing)
+            }
+            ProgressView(value: comp.score, total: 100)
+                .tint(tint)
         }
     }
 

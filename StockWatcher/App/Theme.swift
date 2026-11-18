@@ -54,6 +54,30 @@ extension FundamentalAnalyzer.Verdict {
     }
 }
 
+extension CompositeEvaluator.Band {
+    var color: Color {
+        switch self {
+        case .veryBullish: return Color(red: 0.11, green: 0.70, blue: 0.42)
+        case .bullish:     return Color(red: 0.30, green: 0.78, blue: 0.47)
+        case .mixed:       return Color(red: 0.55, green: 0.57, blue: 0.62)
+        case .bearish:     return Color(red: 0.93, green: 0.49, blue: 0.33)
+        case .veryBearish: return Color(red: 0.90, green: 0.26, blue: 0.29)
+        }
+    }
+}
+
+extension MarketMood.Band {
+    var color: Color {
+        switch self {
+        case .calm:    return Color(red: 0.20, green: 0.72, blue: 0.45)
+        case .normal:  return Color(red: 0.36, green: 0.73, blue: 0.55)
+        case .guarded: return Color(red: 0.92, green: 0.70, blue: 0.25)
+        case .fearful: return Color(red: 0.93, green: 0.49, blue: 0.33)
+        case .panic:   return Color(red: 0.90, green: 0.26, blue: 0.29)
+        }
+    }
+}
+
 extension Color {
     static func forChange(_ up: Bool) -> Color {
         up ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color(red: 0.90, green: 0.30, blue: 0.33)
