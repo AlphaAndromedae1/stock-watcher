@@ -71,6 +71,12 @@ public struct QuoteSummaryResponse: Decodable {
         public let defaultKeyStatistics: KeyStatistics?
         public let financialData: FinancialData?
         public let calendarEvents: CalendarEvents?
+        public let netSharePurchaseActivity: NetSharePurchaseActivity?
+    }
+
+    public struct NetSharePurchaseActivity: Decodable {
+        public let netShares: YValue?
+        public let netPercentInsiderShares: YValue?
     }
 
     public struct SummaryDetail: Decodable {
@@ -98,6 +104,8 @@ public struct QuoteSummaryResponse: Decodable {
         public let pegRatio: YValue?
         public let forwardPE: YValue?
         public let beta: YValue?
+        public let shortPercentOfFloat: YValue?
+        public let shortRatio: YValue?
     }
 
     public struct FinancialData: Decodable {

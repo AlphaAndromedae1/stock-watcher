@@ -93,6 +93,34 @@ struct RSIChartView: View {
     }
 }
 
+/// Volume subpanel: bars colored by up/down day, with relative-volume label.
+struct VolumeChartView: View {
+    let candles: [Candle]
+
+    private var relVol: Double? { Indicators.relativeVolume(candles.volumes) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Volume").font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                if let r = relVol {
+                    Text(String(format: "%.1f× avg", r))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(r >= 1.5 ? Color.forChange(true) : .secondary)
+                }
+            }
+            Chart(candles) { c in
+                BarMark(x: .value("Date", c.date), y: .value("Volume", c.volume))
+                    .foregroundStyle(Color.forChange(c.close >= c.open).opacity(0.45))
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .frame(height: 44)
+        }
+    }
+}
+
 /// MACD(12,26,9) subpanel: histogram + MACD and signal lines.
 struct MACDChartView: View {
     let candles: [Candle]

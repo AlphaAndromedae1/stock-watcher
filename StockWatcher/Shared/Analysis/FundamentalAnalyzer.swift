@@ -77,6 +77,25 @@ public enum FundamentalAnalyzer {
                                 detail: "Pays \(Fmt.percentFromFraction(dy)) annually. Check the payout ratio is sustainable."))
         }
 
+        // Short interest — crowd betting against the stock (higher = riskier)
+        if let sp = f.shortPercentOfFloat {
+            let v: Verdict = sp < 0.03 ? .good : (sp < 0.08 ? .fair : .weak)
+            var note = "\(Fmt.percentFromFraction(sp)) of float sold short."
+            if let sr = f.shortRatio { note += " ~\(Fmt.number(sr, decimals: 1)) days to cover." }
+            if sp >= 0.08 { note += " Heavily shorted — risk, but also squeeze fuel." }
+            checks.append(Check(title: "Short interest", verdict: v, detail: note))
+        }
+
+        // Insider activity — insiders buying their own stock is a trusted signal
+        if let net = f.insiderNetShares, net != 0 {
+            let buying = net > 0
+            let v: Verdict = buying ? .good : .weak
+            let note = buying
+                ? "Insiders were net buyers recently — often a confidence signal."
+                : "Insiders were net sellers recently (note: selling has many benign reasons)."
+            checks.append(Check(title: "Insider activity", verdict: v, detail: note))
+        }
+
         // Volatility — beta
         if let beta = f.beta {
             let v: Verdict = beta < 1.2 ? .good : (beta < 1.6 ? .fair : .weak)

@@ -278,6 +278,58 @@ public enum Indicators {
         return out
     }
 
+    /// On-Balance Volume: cumulative volume, added on up closes, subtracted on down.
+    public static func obv(close: [Double], volume: [Double]) -> [Double] {
+        let n = close.count
+        var out = Array(repeating: Double.nan, count: n)
+        guard n > 1, volume.count == n else { return out }
+        var running = 0.0
+        out[0] = 0
+        for i in 1..<n {
+            if close[i] > close[i - 1] { running += volume[i] }
+            else if close[i] < close[i - 1] { running -= volume[i] }
+            out[i] = running
+        }
+        return out
+    }
+
+    /// Money Flow Index: a volume-weighted RSI (0–100).
+    public static func moneyFlowIndex(high: [Double], low: [Double], close: [Double],
+                                      volume: [Double], period: Int = 14) -> [Double] {
+        let n = close.count
+        var out = Array(repeating: Double.nan, count: n)
+        guard n > period, volume.count == n else { return out }
+        var tp = Array(repeating: 0.0, count: n)
+        var rmf = Array(repeating: 0.0, count: n)
+        for i in 0..<n {
+            tp[i] = (high[i] + low[i] + close[i]) / 3
+            rmf[i] = tp[i] * volume[i]
+        }
+        for i in period..<n {
+            var positive = 0.0
+            var negative = 0.0
+            for j in (i - period + 1)...i where j >= 1 {
+                if tp[j] > tp[j - 1] { positive += rmf[j] }
+                else if tp[j] < tp[j - 1] { negative += rmf[j] }
+            }
+            if negative == 0 {
+                out[i] = 100
+            } else {
+                let ratio = positive / negative
+                out[i] = 100 - 100 / (1 + ratio)
+            }
+        }
+        return out
+    }
+
+    /// Today's volume relative to its trailing average (e.g. 1.8 == 180% of normal).
+    public static func relativeVolume(_ volume: [Double], period: Int = 20) -> Double? {
+        guard volume.count > period, let last = volume.last else { return nil }
+        let smaVol = sma(volume, period)
+        guard let avg = lastFinite(smaVol), avg > 0 else { return nil }
+        return last / avg
+    }
+
     public static func ultimateOscillator(high: [Double], low: [Double], close: [Double],
                                            short: Int = 7, medium: Int = 14, long: Int = 28) -> [Double] {
         let n = close.count

@@ -52,6 +52,9 @@ public struct Fundamentals: Equatable, Codable, Sendable {
     public var dividendRate: Double?        // annual $ per share
     public var exDividendDate: Date?
     public var nextEarningsDate: Date?
+    public var shortPercentOfFloat: Double? // fraction of float sold short
+    public var shortRatio: Double?          // days-to-cover
+    public var insiderNetShares: Double?    // net insider shares bought(+)/sold(-), ~6mo
 
     public init() {}
 
@@ -60,6 +63,6 @@ public struct Fundamentals: Equatable, Codable, Sendable {
             && pegRatio == nil && dividendYield == nil && profitMargin == nil
             && returnOnEquity == nil && debtToEquity == nil && revenueGrowth == nil
             && earningsGrowth == nil && beta == nil && recommendationKey == nil
-            && targetMeanPrice == nil
+            && targetMeanPrice == nil && shortPercentOfFloat == nil && insiderNetShares == nil
     }
 }

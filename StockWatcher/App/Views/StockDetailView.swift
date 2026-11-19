@@ -373,6 +373,7 @@ struct StockDetailView: View {
                     .opacity(model.isLoadingChart ? 0.4 : 1)
 
                     Divider()
+                    VolumeChartView(candles: model.chartCandles)
                     RSIChartView(candles: model.chartCandles)
                     MACDChartView(candles: model.chartCandles)
                 }
@@ -481,6 +482,8 @@ struct StockDetailView: View {
             stat("Beta", Fmt.number(f.beta))
             stat("52w high", Fmt.price(f.fiftyTwoWeekHigh))
             stat("52w low", Fmt.price(f.fiftyTwoWeekLow))
+            stat("Short % float", Fmt.percentFromFraction(f.shortPercentOfFloat))
+            stat("Short ratio", Fmt.number(f.shortRatio, decimals: 1))
         }
     }
 

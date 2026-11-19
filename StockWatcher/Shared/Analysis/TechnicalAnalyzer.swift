@@ -122,6 +122,22 @@ public enum TechnicalAnalyzer {
             add(&oscillators, "Bull Bear Power (13)", bullPair.curr + bearPair.curr, s)
         }
 
+        // Money Flow Index (14) — volume-weighted RSI (buying/selling pressure)
+        let mfi = Indicators.moneyFlowIndex(high: high, low: low, close: close, volume: volume, period: 14)
+        if let (prev, curr) = Indicators.lastTwoFinite(mfi) {
+            let s: Signal = (curr < 20 && curr > prev) ? .buy
+                          : (curr > 80 && curr < prev) ? .sell : .neutral
+            add(&oscillators, "Money Flow Index (14)", curr, s)
+        }
+
+        // On-Balance Volume — accumulation vs distribution (OBV vs its EMA)
+        let obv = Indicators.obv(close: close, volume: volume)
+        let obvEMA = Indicators.ema(obv, 20)
+        if let o = Indicators.lastFinite(obv), let e = Indicators.lastFinite(obvEMA) {
+            let s: Signal = o > e ? .buy : o < e ? .sell : .neutral
+            add(&oscillators, "On-Balance Volume", nil, s)
+        }
+
         // ---- Moving averages -------------------------------------------------
 
         func maSignal(_ value: Double) -> Signal {
