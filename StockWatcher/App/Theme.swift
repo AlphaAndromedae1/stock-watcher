@@ -66,6 +66,23 @@ extension CompositeEvaluator.Band {
     }
 }
 
+extension Flow {
+    var color: Color {
+        switch self {
+        case .accumulating: return Color(red: 0.20, green: 0.72, blue: 0.45)
+        case .neutral:      return Color(red: 0.55, green: 0.57, blue: 0.62)
+        case .distributing: return Color(red: 0.90, green: 0.30, blue: 0.33)
+        }
+    }
+    var systemImage: String {
+        switch self {
+        case .accumulating: return "arrow.up.circle.fill"
+        case .neutral:      return "equal.circle.fill"
+        case .distributing: return "arrow.down.circle.fill"
+        }
+    }
+}
+
 extension MarketMood.Band {
     var color: Color {
         switch self {

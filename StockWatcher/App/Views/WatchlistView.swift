@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WatchlistView: View {
     @StateObject private var model = WatchlistViewModel()
+    @ObservedObject var router: DeepLinkRouter
     @State private var showingSearch = false
 
     var body: some View {
@@ -12,6 +13,9 @@ struct WatchlistView: View {
                 } else {
                     list
                 }
+            }
+            .navigationDestination(item: $router.target) { link in
+                StockDetailView(symbol: link.symbol, name: link.name)
             }
             .navigationTitle("TSX Watchlist")
             .toolbar {
@@ -46,6 +50,25 @@ struct WatchlistView: View {
 
     private var list: some View {
         List {
+            if let p = model.portfolio {
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Portfolio").font(.subheadline.weight(.semibold))
+                            Text("\(p.count) holding\(p.count == 1 ? "" : "s")")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(Fmt.price(p.marketValue))
+                                .font(.headline.monospacedDigit())
+                            Text("\(Fmt.signedMoney(p.gain)) (\(Fmt.signedPercent(p.gainPercent)))")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(Color.forChange(p.gain >= 0))
+                        }
+                    }
+                }
+            }
             Section {
                 ForEach(model.items) { item in
                     NavigationLink {
@@ -130,5 +153,5 @@ struct QuoteRow: View {
 }
 
 #Preview {
-    WatchlistView()
+    WatchlistView(router: DeepLinkRouter())
 }

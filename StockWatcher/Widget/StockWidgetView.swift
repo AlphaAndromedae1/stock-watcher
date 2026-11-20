@@ -102,6 +102,7 @@ struct StockWidgetEntryView: View {
             }
             Spacer(minLength: 0)
         }
+        .widgetURL(entry.rows.first.flatMap { StockWatcherURL.stock($0.fullSymbol) })
     }
 
     // MARK: Medium / Large list
@@ -111,7 +112,11 @@ struct StockWidgetEntryView: View {
             header
                 .padding(.bottom, 6)
             ForEach(Array(entry.rows.enumerated()), id: \.element.id) { index, row in
-                rowView(row)
+                if let url = StockWatcherURL.stock(row.fullSymbol) {
+                    Link(destination: url) { rowView(row) }
+                } else {
+                    rowView(row)
+                }
                 if index < entry.rows.count - 1 {
                     Divider().opacity(0.22).padding(.vertical, 5)
                 }
@@ -179,8 +184,13 @@ struct StockWidgetEntryView: View {
     // MARK: Pieces
 
     private var header: some View {
-        HStack(spacing: 6) {
-            Text("TSX Watch").font(.caption2.bold()).foregroundStyle(.secondary)
+        let isOpen = MarketHours.isTSXOpen(at: entry.date)
+        return HStack(spacing: 6) {
+            Circle()
+                .fill(isOpen ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color.secondary)
+                .frame(width: 6, height: 6)
+            Text(isOpen ? "TSX · Open" : "TSX · Closed")
+                .font(.caption2.bold()).foregroundStyle(.secondary)
             Spacer(minLength: 4)
             if let mood = entry.mood, mood.headline != nil {
                 moodPill(mood)

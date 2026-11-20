@@ -180,9 +180,20 @@ public enum TechnicalAnalyzer {
             add(&mas, "Hull Moving Average (9)", curr, s)
         }
 
+        // Money flow: accumulation vs distribution from OBV trend + MFI level.
+        var flowScore = 0
+        if let o = Indicators.lastFinite(obv), let e = Indicators.lastFinite(obvEMA) {
+            flowScore += o > e ? 1 : (o < e ? -1 : 0)
+        }
+        if let m = Indicators.lastFinite(mfi) {
+            flowScore += m > 55 ? 1 : (m < 45 ? -1 : 0)
+        }
+        let flow: Flow = flowScore > 0 ? .accumulating : (flowScore < 0 ? .distributing : .neutral)
+
         return TechnicalRating(
             oscillators: RatingGroup(title: "Oscillators", results: oscillators),
-            movingAverages: RatingGroup(title: "Moving Averages", results: mas)
+            movingAverages: RatingGroup(title: "Moving Averages", results: mas),
+            flow: flow
         )
     }
 

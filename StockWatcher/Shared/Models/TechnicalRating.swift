@@ -83,14 +83,31 @@ public struct RatingGroup: Equatable, Codable, Sendable {
     public var recommendation: Recommendation { .from(average: average) }
 }
 
+/// Money-flow read: are buyers (accumulation) or sellers (distribution) in control?
+public enum Flow: Int, Codable, Sendable {
+    case distributing = -1
+    case neutral = 0
+    case accumulating = 1
+
+    public var label: String {
+        switch self {
+        case .accumulating: return "Accumulating"
+        case .neutral:      return "Neutral flow"
+        case .distributing: return "Distributing"
+        }
+    }
+}
+
 /// The full technical evaluation for one symbol at one point in time.
 public struct TechnicalRating: Equatable, Codable, Sendable {
     public let oscillators: RatingGroup
     public let movingAverages: RatingGroup
+    public let flow: Flow
 
-    public init(oscillators: RatingGroup, movingAverages: RatingGroup) {
+    public init(oscillators: RatingGroup, movingAverages: RatingGroup, flow: Flow = .neutral) {
         self.oscillators = oscillators
         self.movingAverages = movingAverages
+        self.flow = flow
     }
 
     /// The headline summary, computed over every indicator in both groups

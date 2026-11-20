@@ -2,12 +2,37 @@ import Foundation
 import Combine
 import WidgetKit
 
+struct PortfolioSummary {
+    let marketValue: Double
+    let cost: Double
+    let count: Int
+    var gain: Double { marketValue - cost }
+    var gainPercent: Double { cost > 0 ? gain / cost * 100 : 0 }
+}
+
 @MainActor
 final class WatchlistViewModel: ObservableObject {
     @Published var items: [WatchItem] = []
     @Published var quotes: [String: Quote] = [:]
     @Published var isLoading = false
     @Published var lastUpdated: Date?
+
+    /// Combined gain/loss across holdings that currently have a quote.
+    var portfolio: PortfolioSummary? {
+        let holdings = HoldingsStore.shared.all()
+        guard !holdings.isEmpty else { return nil }
+        var marketValue = 0.0
+        var cost = 0.0
+        var count = 0
+        for h in holdings {
+            guard let q = quotes[h.symbol], q.price > 0 else { continue }
+            marketValue += h.marketValue(at: q.price)
+            cost += h.cost
+            count += 1
+        }
+        guard count > 0, cost > 0 else { return nil }
+        return PortfolioSummary(marketValue: marketValue, cost: cost, count: count)
+    }
 
     private let store = WatchlistStore.shared
     private let service = YahooService.shared

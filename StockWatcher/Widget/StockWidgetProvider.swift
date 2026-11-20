@@ -4,6 +4,7 @@ import SwiftUI
 /// One row shown in the widget.
 struct WidgetRow: Identifiable, Hashable {
     let symbol: String        // display symbol, e.g. "RY"
+    let fullSymbol: String    // Yahoo symbol, e.g. "RY.TO" (for deep links)
     let name: String
     let price: Double
     let changePercent: Double
@@ -11,7 +12,7 @@ struct WidgetRow: Identifiable, Hashable {
     let hasData: Bool
     let score: Int?                       // Stock Watcher Score 0…100
     let band: CompositeEvaluator.Band?
-    var id: String { symbol }
+    var id: String { fullSymbol }
 }
 
 struct StockEntry: TimelineEntry {
@@ -23,10 +24,10 @@ struct StockEntry: TimelineEntry {
     static let sample = StockEntry(
         date: Date(),
         rows: [
-            WidgetRow(symbol: "RY", name: "Royal Bank of Canada", price: 176.42, changePercent: 0.82, isUp: true, hasData: true, score: 74, band: .bullish),
-            WidgetRow(symbol: "SHOP", name: "Shopify Inc.", price: 148.10, changePercent: -1.35, isUp: false, hasData: true, score: 48, band: .mixed),
-            WidgetRow(symbol: "ENB", name: "Enbridge Inc.", price: 59.73, changePercent: 0.41, isUp: true, hasData: true, score: 63, band: .bullish),
-            WidgetRow(symbol: "CNQ", name: "Canadian Natural", price: 47.88, changePercent: -0.22, isUp: false, hasData: true, score: 39, band: .bearish)
+            WidgetRow(symbol: "RY", fullSymbol: "RY.TO", name: "Royal Bank of Canada", price: 176.42, changePercent: 0.82, isUp: true, hasData: true, score: 74, band: .bullish),
+            WidgetRow(symbol: "SHOP", fullSymbol: "SHOP.TO", name: "Shopify Inc.", price: 148.10, changePercent: -1.35, isUp: false, hasData: true, score: 48, band: .mixed),
+            WidgetRow(symbol: "ENB", fullSymbol: "ENB.TO", name: "Enbridge Inc.", price: 59.73, changePercent: 0.41, isUp: true, hasData: true, score: 63, band: .bullish),
+            WidgetRow(symbol: "CNQ", fullSymbol: "CNQ.TO", name: "Canadian Natural", price: 47.88, changePercent: -0.22, isUp: false, hasData: true, score: 39, band: .bearish)
         ],
         isPlaceholder: true,
         mood: MarketMood(vix: 17.4, vixChangePercent: -3.1, vixc: 15.9, asOf: Date()))
@@ -93,7 +94,7 @@ struct StockProvider: TimelineProvider {
 
                     guard let result = try? await YahooService.shared.fetchCandles(symbol: item.symbol, range: .oneYear),
                           !result.candles.isEmpty else {
-                        return (item.symbol, WidgetRow(symbol: display, name: niceName, price: 0,
+                        return (item.symbol, WidgetRow(symbol: display, fullSymbol: item.symbol, name: niceName, price: 0,
                                                        changePercent: 0, isUp: true, hasData: false,
                                                        score: nil, band: nil))
                     }
@@ -102,7 +103,7 @@ struct StockProvider: TimelineProvider {
                     let composite = CompositeEvaluator.evaluate(technical: rating,
                                                                 fundamentals: Fundamentals(),
                                                                 quote: quote)
-                    return (item.symbol, WidgetRow(symbol: display, name: niceName, price: quote.price,
+                    return (item.symbol, WidgetRow(symbol: display, fullSymbol: item.symbol, name: niceName, price: quote.price,
                                                    changePercent: quote.changePercent, isUp: quote.isUp,
                                                    hasData: true, score: composite?.score, band: composite?.band))
                 }

@@ -307,6 +307,12 @@ struct StockDetailView: View {
                         Divider().frame(height: 42)
                         subRating("Moving Avgs", rating.movingAverages)
                     }
+                    HStack(spacing: 6) {
+                        Image(systemName: rating.flow.systemImage).foregroundStyle(rating.flow.color)
+                        Text(rating.flow.label)
+                            .font(.caption.weight(.semibold)).foregroundStyle(rating.flow.color)
+                        Text("· money flow").font(.caption2).foregroundStyle(.secondary)
+                    }
                     Text("Based on \(rating.allResults.count) indicators on daily data.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)

@@ -12,6 +12,7 @@ import UIKit
 struct SingleStockEntry: TimelineEntry {
     let date: Date
     let symbol: String      // display, e.g. "RY"
+    let fullSymbol: String  // Yahoo symbol, e.g. "RY.TO" (for deep links)
     let name: String
     let price: Double
     let changePercent: Double
@@ -27,12 +28,12 @@ struct SingleStockEntry: TimelineEntry {
     ]
 
     static let sample = SingleStockEntry(
-        date: Date(), symbol: "RY", name: "Royal Bank of Canada",
+        date: Date(), symbol: "RY", fullSymbol: "RY.TO", name: "Royal Bank of Canada",
         price: 176.42, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
         macd: sampleMACD, hasData: true)
 
     static func noData(_ display: String = "—", name: String = "No data") -> SingleStockEntry {
-        SingleStockEntry(date: Date(), symbol: display, name: name, price: 0,
+        SingleStockEntry(date: Date(), symbol: display, fullSymbol: display, name: name, price: 0,
                          changePercent: 0, isUp: true, score: nil, band: nil,
                          macd: [], hasData: false)
     }
@@ -92,7 +93,7 @@ struct TopPickProvider: TimelineProvider {
         let composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: Fundamentals(), quote: quote)
         let histogram = Indicators.macd(result.candles.closes).histogram
         let macd = Array(histogram.filter { $0.isFinite }.suffix(30))
-        return SingleStockEntry(date: Date(), symbol: display, name: name, price: quote.price,
+        return SingleStockEntry(date: Date(), symbol: display, fullSymbol: symbol, name: name, price: quote.price,
                                 changePercent: quote.changePercent, isUp: quote.isUp,
                                 score: composite?.score, band: composite?.band,
                                 macd: macd, hasData: true)
@@ -177,5 +178,6 @@ struct SingleStockWidgetView: View {
             MiniMACD(values: entry.macd)
                 .frame(height: 26)
         }
+        .widgetURL(StockWatcherURL.stock(entry.fullSymbol))
     }
 }
