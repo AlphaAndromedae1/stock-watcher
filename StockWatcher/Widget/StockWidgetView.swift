@@ -118,7 +118,7 @@ struct StockWidgetEntryView: View {
                     rowView(row)
                 }
                 if index < entry.rows.count - 1 {
-                    Divider().opacity(0.22).padding(.vertical, 5)
+                    Divider().opacity(0.22).padding(.vertical, 7)
                 }
             }
             Spacer(minLength: 0)
@@ -127,10 +127,10 @@ struct StockWidgetEntryView: View {
 
     private func rowView(_ row: WidgetRow) -> some View {
         HStack(spacing: 9) {
-            LogoBadge(symbol: row.symbol, size: 26)
+            LogoBadge(symbol: row.symbol, size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.symbol)
-                    .font(.headline.bold())
+                    .font(.subheadline.bold())
                 Text(row.name)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -140,7 +140,7 @@ struct StockWidgetEntryView: View {
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 1) {
                 Text(row.hasData ? Fmt.number(row.price) : "—")
-                    .font(.title3.monospacedDigit().bold())
+                    .font(.headline.monospacedDigit())
                 changeBadge(row)
             }
             scoreChip(row)
@@ -151,11 +151,11 @@ struct StockWidgetEntryView: View {
     private func scoreChip(_ row: WidgetRow) -> some View {
         if let score = row.score, let band = row.band {
             Text("\(score)")
-                .font(.caption.monospacedDigit().bold())
+                .font(.caption2.monospacedDigit().bold())
                 .foregroundStyle(.white)
-                .frame(minWidth: 17)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
+                .frame(minWidth: 15)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
                 .background(Color.band(band).gradient, in: Capsule())
                 .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
                 .accessibilityLabel("Score \(score), \(band.label)")

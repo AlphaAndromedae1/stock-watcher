@@ -182,7 +182,9 @@ public final class YahooService: @unchecked Sendable {
 
     static func quote(from meta: ChartResponse.Meta, fallbackSymbol: String) -> Quote {
         let price = meta.regularMarketPrice ?? meta.chartPreviousClose ?? 0
-        let prev = meta.chartPreviousClose ?? meta.previousClose ?? price
+        // Prior *trading day* close (daily change), not the chart-range start
+        // close — otherwise a 1-year request reports a ~1-year change.
+        let prev = meta.previousClose ?? meta.chartPreviousClose ?? price
         let name = meta.shortName ?? meta.longName ?? TSXCatalog.name(for: fallbackSymbol)
         let time = meta.regularMarketTime.map { Date(timeIntervalSince1970: $0) } ?? Date()
         return Quote(symbol: meta.symbol ?? fallbackSymbol,

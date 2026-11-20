@@ -145,7 +145,7 @@ struct SingleStockWidgetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 8) {
-                LogoBadge(symbol: entry.symbol, size: 30)
+                LogoBadge(symbol: entry.symbol, size: 26)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("FEATURED").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
                     Text(entry.symbol).font(.title3.bold())
