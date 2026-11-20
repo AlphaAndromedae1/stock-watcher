@@ -18,23 +18,23 @@ struct SingleStockEntry: TimelineEntry {
     let isUp: Bool
     let score: Int?
     let band: CompositeEvaluator.Band?
-    let spark: [Double]
+    let macd: [Double]      // recent MACD histogram values
     let hasData: Bool
 
-    static let sampleSpark: [Double] = [
-        158, 159, 160, 162, 161, 163, 165, 164, 166, 168, 167, 169,
-        171, 170, 172, 174, 173, 175, 176, 175, 177, 178, 177, 176.4
+    static let sampleMACD: [Double] = [
+        -0.4, -0.3, -0.2, -0.1, 0.05, 0.15, 0.3, 0.25, 0.35, 0.5, 0.45, 0.6,
+        0.55, 0.7, 0.65, 0.8, 0.7, 0.9, 0.85, 1.0, 0.9, 1.05, 0.95, 1.1
     ]
 
     static let sample = SingleStockEntry(
         date: Date(), symbol: "RY", name: "Royal Bank of Canada",
         price: 176.42, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
-        spark: sampleSpark, hasData: true)
+        macd: sampleMACD, hasData: true)
 
     static func noData(_ display: String = "—", name: String = "No data") -> SingleStockEntry {
         SingleStockEntry(date: Date(), symbol: display, name: name, price: 0,
                          changePercent: 0, isUp: true, score: nil, band: nil,
-                         spark: [], hasData: false)
+                         macd: [], hasData: false)
     }
 }
 
@@ -63,8 +63,8 @@ struct TopPickProvider: TimelineProvider {
             return entry
         }
 
-        // Otherwise feature the highest Stock Watcher Score in the watchlist.
-        let symbols = Array(WatchlistStore.shared.load().prefix(6)).map(\.symbol)
+        // Otherwise feature the highest Stock Watcher Score among the widget list.
+        let symbols = WatchlistStore.widgetSymbols.map(\.symbol)
         guard !symbols.isEmpty else { return .noData() }
 
         let entries = await withTaskGroup(of: SingleStockEntry?.self) { group -> [SingleStockEntry] in
@@ -90,11 +90,12 @@ struct TopPickProvider: TimelineProvider {
         let quote = YahooService.quote(from: result.meta, fallbackSymbol: symbol)
         let rating = TechnicalAnalyzer.analyze(result.candles)
         let composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: Fundamentals(), quote: quote)
-        let spark = Array(result.candles.suffix(30).map(\.close))
+        let histogram = Indicators.macd(result.candles.closes).histogram
+        let macd = Array(histogram.filter { $0.isFinite }.suffix(30))
         return SingleStockEntry(date: Date(), symbol: display, name: name, price: quote.price,
                                 changePercent: quote.changePercent, isUp: quote.isUp,
                                 score: composite?.score, band: composite?.band,
-                                spark: spark, hasData: true)
+                                macd: macd, hasData: true)
     }
 }
 
@@ -141,7 +142,8 @@ struct SingleStockWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 8) {
+                LogoBadge(symbol: entry.symbol, size: 30)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("FEATURED").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
                     Text(entry.symbol).font(.title3.bold())
@@ -171,37 +173,9 @@ struct SingleStockWidgetView: View {
             }
 
             Spacer(minLength: 2)
-            Sparkline(values: entry.spark, color: changeColor)
-                .frame(height: 30)
-        }
-    }
-}
-
-/// A minimal sparkline drawn with a Path (no Charts dependency in the widget).
-struct Sparkline: View {
-    let values: [Double]
-    let color: Color
-
-    var body: some View {
-        GeometryReader { geo in
-            let pts = points(in: geo.size)
-            if pts.count >= 2 {
-                Path { p in
-                    p.move(to: pts[0])
-                    for pt in pts.dropFirst() { p.addLine(to: pt) }
-                }
-                .stroke(color, style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
-            }
-        }
-    }
-
-    private func points(in size: CGSize) -> [CGPoint] {
-        guard values.count >= 2, let lo = values.min(), let hi = values.max(), hi > lo else { return [] }
-        let stepX = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { i, v in
-            let x = CGFloat(i) * stepX
-            let y = size.height - CGFloat((v - lo) / (hi - lo)) * size.height
-            return CGPoint(x: x, y: y)
+            Text("MACD").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
+            MiniMACD(values: entry.macd)
+                .frame(height: 26)
         }
     }
 }

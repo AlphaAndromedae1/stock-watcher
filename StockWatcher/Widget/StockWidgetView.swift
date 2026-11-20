@@ -121,7 +121,8 @@ struct StockWidgetEntryView: View {
     }
 
     private func rowView(_ row: WidgetRow) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 9) {
+            LogoBadge(symbol: row.symbol, size: 26)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.symbol)
                     .font(.headline.bold())

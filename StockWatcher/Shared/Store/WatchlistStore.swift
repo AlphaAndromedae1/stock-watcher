@@ -59,6 +59,15 @@ public final class WatchlistStore: @unchecked Sendable {
     // is NOT in the standard library, so it must not be referenced from Shared
     // code — the SwiftUI-free test target would fail to link.
 
+    /// Fixed, self-contained symbol list the widgets display (no App Group
+    /// needed). Edit this to change what the widgets show.
+    public static let widgetSymbols: [WatchItem] = [
+        WatchItem(symbol: "XEQT.TO", name: "iShares Core Equity ETF"),
+        WatchItem(symbol: "CNQ.TO",  name: "Canadian Natural Resources"),
+        WatchItem(symbol: "SU.TO",   name: "Suncor Energy"),
+        WatchItem(symbol: "CHPS.TO", name: "CHPS")
+    ]
+
     /// A sensible starter list of large, liquid TSX names.
     public static let defaultWatchlist: [WatchItem] = [
         WatchItem(symbol: "RY.TO",  name: "Royal Bank of Canada"),

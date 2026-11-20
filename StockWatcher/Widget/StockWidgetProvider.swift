@@ -75,7 +75,7 @@ struct StockProvider: TimelineProvider {
     static func loadEntry(limit: Int) async -> StockEntry {
         async let moodTask = loadMood()
 
-        let items = Array(WatchlistStore.shared.load().prefix(limit))
+        let items = Array(WatchlistStore.widgetSymbols.prefix(limit))
         guard !items.isEmpty else {
             return StockEntry(date: Date(), rows: [], isPlaceholder: false, mood: await moodTask)
         }
