@@ -78,6 +78,16 @@ extension MarketMood.Band {
     }
 }
 
+extension NewsTone.Label {
+    var color: Color {
+        switch self {
+        case .positive: return Color(red: 0.20, green: 0.72, blue: 0.45)
+        case .mixed:    return Color(red: 0.55, green: 0.57, blue: 0.62)
+        case .negative: return Color(red: 0.90, green: 0.30, blue: 0.33)
+        }
+    }
+}
+
 extension Color {
     static func forChange(_ up: Bool) -> Color {
         up ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color(red: 0.90, green: 0.30, blue: 0.33)

@@ -528,7 +528,18 @@ struct StockDetailView: View {
         if !model.news.isEmpty {
             Card {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("News").font(.headline)
+                    HStack {
+                        Text("News").font(.headline)
+                        Spacer()
+                        if let tone = model.newsTone {
+                            HStack(spacing: 5) {
+                                Circle().fill(tone.label.color).frame(width: 7, height: 7)
+                                Text("Tone: \(tone.label.title)")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(tone.label.color)
+                            }
+                        }
+                    }
                     ForEach(model.news) { item in
                         if let url = item.link {
                             Link(destination: url) { newsRow(item) }
@@ -538,6 +549,8 @@ struct StockDetailView: View {
                         }
                         if item.id != model.news.last?.id { Divider().opacity(0.4) }
                     }
+                    Text("Headline tone is on-device sentiment — informational only, not part of the score.")
+                        .font(.caption2).foregroundStyle(.tertiary)
                 }
             }
         }
