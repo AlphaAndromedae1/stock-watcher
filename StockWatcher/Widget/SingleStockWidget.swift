@@ -15,6 +15,7 @@ struct SingleStockEntry: TimelineEntry {
     let fullSymbol: String  // Yahoo symbol, e.g. "RY.TO" (for deep links)
     let name: String
     let price: Double
+    let change: Double
     let changePercent: Double
     let isUp: Bool
     let score: Int?
@@ -29,12 +30,12 @@ struct SingleStockEntry: TimelineEntry {
 
     static let sample = SingleStockEntry(
         date: Date(), symbol: "RY", fullSymbol: "RY.TO", name: "Royal Bank of Canada",
-        price: 176.42, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
+        price: 176.42, change: 1.43, changePercent: 0.82, isUp: true, score: 74, band: .bullish,
         macd: sampleMACD, hasData: true)
 
     static func noData(_ display: String = "—", name: String = "No data") -> SingleStockEntry {
         SingleStockEntry(date: Date(), symbol: display, fullSymbol: display, name: name, price: 0,
-                         changePercent: 0, isUp: true, score: nil, band: nil,
+                         change: 0, changePercent: 0, isUp: true, score: nil, band: nil,
                          macd: [], hasData: false)
     }
 }
@@ -94,7 +95,7 @@ struct TopPickProvider: TimelineProvider {
         let histogram = Indicators.macd(result.candles.closes).histogram
         let macd = Array(histogram.filter { $0.isFinite }.suffix(30))
         return SingleStockEntry(date: Date(), symbol: display, fullSymbol: symbol, name: name, price: quote.price,
-                                changePercent: quote.changePercent, isUp: quote.isUp,
+                                change: quote.change, changePercent: quote.changePercent, isUp: quote.isUp,
                                 score: composite?.score, band: composite?.band,
                                 macd: macd, hasData: true)
     }
@@ -166,9 +167,12 @@ struct SingleStockWidgetView: View {
                     .font(.title2.monospacedDigit().bold())
                 HStack(spacing: 3) {
                     Image(systemName: entry.isUp ? "arrow.up" : "arrow.down").font(.caption2.bold())
-                    Text(Fmt.signedPercent(entry.changePercent)).font(.caption.monospacedDigit().bold())
+                    Text("\(Fmt.signed(entry.change)) (\(Fmt.signedPercent(entry.changePercent)))")
+                        .font(.caption.monospacedDigit().bold())
                 }
                 .foregroundStyle(changeColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             } else {
                 Text("Add stocks in the app").font(.caption).foregroundStyle(.secondary)
             }

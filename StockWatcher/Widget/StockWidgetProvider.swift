@@ -24,10 +24,10 @@ struct StockEntry: TimelineEntry {
     static let sample = StockEntry(
         date: Date(),
         rows: [
-            WidgetRow(symbol: "RY", fullSymbol: "RY.TO", name: "Royal Bank of Canada", price: 176.42, changePercent: 0.82, isUp: true, hasData: true, score: 74, band: .bullish),
-            WidgetRow(symbol: "SHOP", fullSymbol: "SHOP.TO", name: "Shopify Inc.", price: 148.10, changePercent: -1.35, isUp: false, hasData: true, score: 48, band: .mixed),
-            WidgetRow(symbol: "ENB", fullSymbol: "ENB.TO", name: "Enbridge Inc.", price: 59.73, changePercent: 0.41, isUp: true, hasData: true, score: 63, band: .bullish),
-            WidgetRow(symbol: "CNQ", fullSymbol: "CNQ.TO", name: "Canadian Natural", price: 47.88, changePercent: -0.22, isUp: false, hasData: true, score: 39, band: .bearish)
+            WidgetRow(symbol: "XEQT", fullSymbol: "XEQT.TO", name: "iShares Core Equity ETF", price: 36.84, changePercent: 0.42, isUp: true, hasData: true, score: 68, band: .bullish),
+            WidgetRow(symbol: "SU", fullSymbol: "SU.TO", name: "Suncor Energy", price: 58.21, changePercent: -0.63, isUp: false, hasData: true, score: 51, band: .mixed),
+            WidgetRow(symbol: "CHPS", fullSymbol: "CHPS.TO", name: "CHPS", price: 24.17, changePercent: 1.12, isUp: true, hasData: true, score: 72, band: .bullish),
+            WidgetRow(symbol: "Gold 10K", fullSymbol: "GC=F", name: "Per gram · CAD", price: 49.73, changePercent: 0.55, isUp: true, hasData: true, score: nil, band: nil)
         ],
         isPlaceholder: true,
         mood: MarketMood(vix: 17.4, vixChangePercent: -3.1, vixc: 15.9, asOf: Date()))
@@ -73,12 +73,30 @@ struct StockProvider: TimelineProvider {
                           vixc: vixc?.price, asOf: Date())
     }
 
+    /// 10-karat gold price per gram in CAD, from gold futures × USD/CAD.
+    static func loadGoldRow() async -> WidgetRow? {
+        let gold = try? await YahooService.shared.fetchQuote(symbol: "GC=F")   // USD per troy oz
+        let fx = try? await YahooService.shared.fetchQuote(symbol: "CAD=X")    // CAD per USD
+        guard let gold, let fx, gold.price > 0, fx.price > 0 else { return nil }
+        let gramsPerTroyOz = 31.1035
+        let perGramPureCAD = gold.price / gramsPerTroyOz * fx.price
+        let value = perGramPureCAD * (10.0 / 24.0)   // 10K purity
+        return WidgetRow(symbol: "Gold 10K", fullSymbol: "GC=F", name: "Per gram · CAD",
+                         price: value, changePercent: gold.changePercent, isUp: gold.isUp,
+                         hasData: true, score: nil, band: nil)
+    }
+
     static func loadEntry(limit: Int) async -> StockEntry {
         async let moodTask = loadMood()
+        async let goldTask = loadGoldRow()
 
-        let items = Array(WatchlistStore.widgetSymbols.prefix(limit))
+        // Reserve one slot for the gold row.
+        let stockLimit = max(limit - 1, 1)
+        let items = Array(WatchlistStore.widgetSymbols.prefix(stockLimit))
         guard !items.isEmpty else {
-            return StockEntry(date: Date(), rows: [], isPlaceholder: false, mood: await moodTask)
+            var rows: [WidgetRow] = []
+            if let gold = await goldTask { rows.append(gold) }
+            return StockEntry(date: Date(), rows: rows, isPlaceholder: false, mood: await moodTask)
         }
 
         // Fetch each symbol's year of daily data concurrently; derive the live
@@ -113,7 +131,8 @@ struct StockProvider: TimelineProvider {
             return dict
         }
 
-        let rows = items.compactMap { rowsBySymbol[$0.symbol] }
+        var rows = items.compactMap { rowsBySymbol[$0.symbol] }
+        if let gold = await goldTask { rows.append(gold) }
         return StockEntry(date: Date(), rows: rows, isPlaceholder: false, mood: await moodTask)
     }
 }

@@ -140,7 +140,7 @@ struct StockWidgetEntryView: View {
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 1) {
                 Text(row.hasData ? Fmt.number(row.price) : "—")
-                    .font(.subheadline.monospacedDigit().weight(.semibold))
+                    .font(.title3.monospacedDigit().bold())
                 changeBadge(row)
             }
             scoreChip(row)
