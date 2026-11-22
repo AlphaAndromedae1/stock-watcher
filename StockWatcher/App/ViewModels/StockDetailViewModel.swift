@@ -22,6 +22,10 @@ final class StockDetailViewModel: ObservableObject {
     @Published var scoreHistory: [ScoreSample] = []
     @Published var news: [NewsItem] = []
     @Published var newsTone: NewsTone?
+    @Published var sim: MonteCarloResult?
+    @Published var simHorizon: Int = 63      // 21=1M, 63=3M, 252=1Y
+
+    private var ratingCandles: [Candle] = []
 
     private let service = YahooService.shared
 
@@ -103,6 +107,7 @@ final class StockDetailViewModel: ObservableObject {
             // Ratings always use ~1 year of daily bars so long MAs are defined.
             let (candles, meta) = try await service.fetchCandles(symbol: symbol, range: .oneYear)
             rating = TechnicalAnalyzer.analyze(candles)
+            ratingCandles = candles
             if quote == nil { quote = YahooService.quote(from: meta, fallbackSymbol: symbol) }
         } catch {
             if errorMessage == nil {
@@ -125,5 +130,25 @@ final class StockDetailViewModel: ObservableObject {
             ScoreHistoryStore.shared.record(symbol: symbol, score: c.score)
             scoreHistory = ScoreHistoryStore.shared.history(symbol: symbol)
         }
+
+        await runSim()
+    }
+
+    func setSimHorizon(_ days: Int) {
+        guard days != simHorizon else { return }
+        simHorizon = days
+        Task { await runSim() }
+    }
+
+    func runSim() async {
+        guard !ratingCandles.isEmpty else { return }
+        let candles = ratingCandles
+        let horizon = simHorizon
+        let plan = TradePlanStore.shared.plan(for: symbol)
+        let result = await Task.detached(priority: .userInitiated) {
+            MonteCarlo.simulate(candles: candles, horizonDays: horizon,
+                                target: plan?.target, stop: plan?.stop)
+        }.value
+        sim = result
     }
 }

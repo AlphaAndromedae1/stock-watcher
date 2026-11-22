@@ -28,6 +28,7 @@ struct StockDetailView: View {
                     if model.composite != nil { scoreCard }
                     ratingCard
                     chartCard
+                    oddsCard
                 }
                 Group {
                     positionCard
@@ -224,6 +225,63 @@ struct StockDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: Possible Outcomes (Monte Carlo)
+
+    private var oddsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Possible Outcomes").font(.headline)
+                    Spacer()
+                    Picker("Horizon", selection: Binding(
+                        get: { model.simHorizon },
+                        set: { model.setSimHorizon($0) }
+                    )) {
+                        Text("1M").tag(21)
+                        Text("3M").tag(63)
+                        Text("1Y").tag(252)
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(width: 150)
+                }
+                if let s = model.sim {
+                    let plan = TradePlanStore.shared.plan(for: model.symbol)
+                    FanChartView(result: s, target: plan?.target, stop: plan?.stop)
+                    oddsStats(s)
+                } else {
+                    ProgressView().frame(maxWidth: .infinity).frame(height: 150)
+                }
+                Text("Simulated from this stock's own ~1-year daily history (2,500 paths). A range of outcomes, not a prediction — it can't foresee earnings, gaps or news.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func oddsStats(_ s: MonteCarloResult) -> some View {
+        func chg(_ v: Double) -> String { Fmt.signedPercent((v / s.startPrice - 1) * 100) }
+        return LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading),
+                                   GridItem(.flexible(), alignment: .leading)], spacing: 10) {
+            oddsCell("Median", "\(Fmt.price(s.p50)) (\(chg(s.p50)))")
+            oddsCell("Chance higher", Fmt.percentFromFraction(s.probUp))
+            oddsCell("Likely (50%)", "\(Fmt.price(s.p25)) – \(Fmt.price(s.p75))")
+            oddsCell("Range (90%)", "\(Fmt.price(s.p5)) – \(Fmt.price(s.p95))")
+            if let pt = s.probTarget {
+                oddsCell("Hits target", Fmt.percentFromFraction(pt))
+            }
+            if let ps = s.probStop {
+                oddsCell("Hits stop", Fmt.percentFromFraction(ps))
+            }
+        }
+    }
+
+    private func oddsCell(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value).font(.subheadline.monospacedDigit().weight(.medium))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Stock Watcher Score (custom composite)
