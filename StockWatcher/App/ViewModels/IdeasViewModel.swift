@@ -10,6 +10,7 @@ final class IdeasViewModel: ObservableObject {
         let entry: TSXCatalog.Entry
         let quote: Quote?
         let rating: TechnicalRating
+        let setups: [Setup]
         var id: String { entry.symbol }
         var average: Double { rating.summaryAverage }
         var recommendation: Recommendation { rating.summary }
@@ -112,7 +113,8 @@ final class IdeasViewModel: ObservableObject {
               !result.candles.isEmpty else { return nil }
         let rating = TechnicalAnalyzer.analyze(result.candles)
         let quote = YahooService.quote(from: result.meta, fallbackSymbol: entry.symbol)
-        return Idea(entry: entry, quote: quote, rating: rating)
+        let setups = SetupScanner.detect(result.candles)
+        return Idea(entry: entry, quote: quote, rating: rating, setups: setups)
     }
 }
 

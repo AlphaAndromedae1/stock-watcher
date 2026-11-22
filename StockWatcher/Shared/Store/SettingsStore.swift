@@ -20,6 +20,18 @@ public final class SettingsStore: @unchecked Sendable {
         static let vixAlertEnabled = "settings.vixAlertEnabled"
         static let lastVixAlert = "settings.lastVixAlert"
         static let featuredSymbol = "settings.featuredSymbol"
+        static let accountSize = "settings.accountSize"
+        static let maxRiskPerTrade = "settings.maxRiskPerTrade"
+    }
+
+    public var accountSize: Double {
+        get { doubleOr(Key.accountSize, 5000) }
+        set { defaults.set(newValue, forKey: Key.accountSize) }
+    }
+
+    public var maxRiskPerTrade: Double {
+        get { doubleOr(Key.maxRiskPerTrade, 50) }
+        set { defaults.set(newValue, forKey: Key.maxRiskPerTrade) }
     }
 
     /// The stock the single-stock widget should feature. nil/empty = auto (Top Pick).

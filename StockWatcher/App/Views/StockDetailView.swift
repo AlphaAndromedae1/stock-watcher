@@ -11,6 +11,9 @@ struct StockDetailView: View {
     @State private var alerts: [PriceAlert] = []
     @State private var showAddPrice = false
     @State private var addKind: PriceAlert.Kind = .priceAbove
+    @State private var showPlanEditor = false
+    @State private var showSizer = false
+    @State private var planRevision = 0
 
     init(symbol: String, name: String) {
         _model = StateObject(wrappedValue: StockDetailViewModel(symbol: symbol, name: name))
@@ -32,6 +35,7 @@ struct StockDetailView: View {
                 }
                 Group {
                     positionCard
+                    planCard
                     alertsCard
                 }
                 if let rating = model.rating {
@@ -86,6 +90,24 @@ struct StockDetailView: View {
                     model.removeHolding()
                     showPositionEditor = false
                 })
+        }
+        .sheet(isPresented: $showPlanEditor) {
+            TradePlanEditor(
+                symbol: displaySymbol,
+                plan: TradePlanStore.shared.plan(for: model.symbol),
+                onSave: { plan in
+                    TradePlanStore.shared.save(plan, for: model.symbol)
+                    planRevision += 1
+                    Task { await model.runSim() }
+                    showPlanEditor = false
+                })
+        }
+        .sheet(isPresented: $showSizer) {
+            PositionSizerSheet(
+                symbol: displaySymbol,
+                entry: model.quote?.price ?? 0,
+                stop: TradePlanStore.shared.plan(for: model.symbol)?.stop,
+                target: TradePlanStore.shared.plan(for: model.symbol)?.target)
         }
     }
 
@@ -157,6 +179,49 @@ struct StockDetailView: View {
 
     private func reloadAlerts() {
         alerts = AlertStore.shared.alerts(for: model.symbol)
+    }
+
+    // MARK: Plan & Sizing
+
+    private var planCard: some View {
+        let plan = TradePlanStore.shared.plan(for: model.symbol)
+        let price = model.quote?.price
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Plan & Sizing").font(.headline)
+                    Spacer()
+                    Button(plan == nil ? "Set plan" : "Edit") { showPlanEditor = true }
+                        .font(.subheadline)
+                }
+                if let plan = plan {
+                    HStack(spacing: 16) {
+                        if let t = plan.target { planStat("Target", Fmt.price(t), Color.forChange(true)) }
+                        if let s = plan.stop { planStat("Stop", Fmt.price(s), Color.forChange(false)) }
+                        Spacer()
+                        if let price = price, let rr = plan.rewardRisk(entry: price) {
+                            planStat("Reward : Risk", String(format: "%.1f : 1", rr), .primary)
+                        }
+                    }
+                } else {
+                    Text("Set a target and a stop to see reward:risk — and the odds of hitting each in Possible Outcomes.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                Button { showSizer = true } label: {
+                    Label("Position sizer", systemImage: "function")
+                }
+                .font(.subheadline)
+            }
+        }
+        .id(planRevision)
+    }
+
+    private func planStat(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.subheadline.monospacedDigit().bold()).foregroundStyle(color)
+        }
     }
 
     // MARK: Position / P&L
@@ -751,7 +816,148 @@ struct PositionEditor: View {
     }
 }
 
-/// Sheet to enter a price threshold for a price alert.
+/// Sheet to set a target and stop (trade plan) for a stock.
+struct TradePlanEditor: View {
+    let symbol: String
+    let plan: TradePlan?
+    let onSave: (TradePlan) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var targetText: String
+    @State private var stopText: String
+
+    init(symbol: String, plan: TradePlan?, onSave: @escaping (TradePlan) -> Void) {
+        self.symbol = symbol
+        self.plan = plan
+        self.onSave = onSave
+        _targetText = State(initialValue: plan?.target.map { String(format: "%.2f", $0) } ?? "")
+        _stopText = State(initialValue: plan?.stop.map { String(format: "%.2f", $0) } ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("\(symbol) plan") {
+                    field("Target (take profit)", $targetText)
+                    field("Stop / review", $stopText)
+                }
+                if plan != nil {
+                    Section { Button("Clear plan", role: .destructive) { onSave(TradePlan()) } }
+                }
+            }
+            .navigationTitle("Trade Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { onSave(TradePlan(target: parse(targetText), stop: parse(stopText))) }
+                }
+            }
+        }
+    }
+
+    private func field(_ label: String, _ binding: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("—", text: binding)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func parse(_ s: String) -> Double? {
+        let v = Double(s.trimmingCharacters(in: .whitespaces))
+        return (v ?? 0) > 0 ? v : nil
+    }
+}
+
+/// Sheet: risk-based position sizer.
+struct PositionSizerSheet: View {
+    let symbol: String
+    let entry: Double
+    let stop: Double?
+    let target: Double?
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var accountText: String
+    @State private var riskText: String
+    @State private var entryText: String
+    @State private var stopText: String
+
+    init(symbol: String, entry: Double, stop: Double?, target: Double?) {
+        self.symbol = symbol
+        self.entry = entry
+        self.stop = stop
+        self.target = target
+        _accountText = State(initialValue: String(format: "%.0f", SettingsStore.shared.accountSize))
+        _riskText = State(initialValue: String(format: "%.0f", SettingsStore.shared.maxRiskPerTrade))
+        _entryText = State(initialValue: entry > 0 ? String(format: "%.2f", entry) : "")
+        _stopText = State(initialValue: stop.map { String(format: "%.2f", $0) } ?? "")
+    }
+
+    private var result: PositionSizeResult {
+        PositionSizer.size(account: Double(accountText) ?? 0,
+                           maxRiskUSD: Double(riskText) ?? 0,
+                           entry: Double(entryText) ?? 0,
+                           stop: Double(stopText) ?? 0,
+                           target: target)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Account") {
+                    money("Account size", $accountText)
+                    money("Max risk / trade", $riskText)
+                }
+                Section("\(symbol) trade") {
+                    money("Entry", $entryText)
+                    money("Stop", $stopText)
+                }
+                Section("Result") {
+                    let r = result
+                    row("Shares", "\(r.shares)")
+                    row("Position value", Fmt.price(r.positionValue))
+                    row("Risk at stop", Fmt.price(r.dollarRisk))
+                    if let rr = r.rewardRisk { row("Reward : Risk", String(format: "%.1f : 1", rr)) }
+                    if let note = r.note {
+                        Text(note).font(.caption).foregroundStyle(.orange)
+                    }
+                }
+            }
+            .navigationTitle("Position Sizer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { saveDefaults(); dismiss() }
+                }
+            }
+            .onDisappear { saveDefaults() }
+        }
+    }
+
+    private func saveDefaults() {
+        if let a = Double(accountText), a > 0 { SettingsStore.shared.accountSize = a }
+        if let m = Double(riskText), m > 0 { SettingsStore.shared.maxRiskPerTrade = m }
+    }
+
+    private func money(_ label: String, _ binding: Binding<String>) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField("0", text: binding)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack { Text(label); Spacer(); Text(value).monospacedDigit() }
+    }
+}
+
+/// Sheet to set a price threshold for a price alert.
 struct AddPriceAlertSheet: View {
     let symbol: String
     let kind: PriceAlert.Kind

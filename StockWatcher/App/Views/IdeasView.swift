@@ -118,6 +118,17 @@ struct IdeasView: View {
                     .font(.headline)
                 Text(idea.entry.name)
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                if !idea.setups.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(idea.setups, id: \.self) { s in
+                            Text(s.rawValue)
+                                .font(.system(size: 9, weight: .semibold))
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(.quaternary, in: Capsule())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             Spacer(minLength: 4)
             if let q = idea.quote {
