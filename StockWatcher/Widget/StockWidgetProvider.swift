@@ -12,6 +12,7 @@ struct WidgetRow: Identifiable, Hashable {
     let hasData: Bool
     let score: Int?                       // Stock Watcher Score 0…100
     let band: CompositeEvaluator.Band?
+    let spark: [Double]                   // intraday closes for the sparkline
     var id: String { fullSymbol }
 }
 
@@ -21,13 +22,18 @@ struct StockEntry: TimelineEntry {
     let isPlaceholder: Bool
     let mood: MarketMood?
 
+    static let sampleSpark: [Double] = [
+        36.4, 36.5, 36.45, 36.6, 36.55, 36.7, 36.72, 36.68, 36.8, 36.78, 36.9, 36.84
+    ]
+    static let sampleGoldSpark: [Double] = [
+        49.9, 49.85, 49.8, 49.7, 49.75, 49.72, 49.68, 49.7, 49.73, 49.71, 49.74, 49.73
+    ]
+
     static let sample = StockEntry(
         date: Date(),
         rows: [
-            WidgetRow(symbol: "XEQT", fullSymbol: "XEQT.TO", name: "iShares Core Equity ETF", price: 36.84, changePercent: 0.42, isUp: true, hasData: true, score: 68, band: .bullish),
-            WidgetRow(symbol: "SU", fullSymbol: "SU.TO", name: "Suncor Energy", price: 58.21, changePercent: -0.63, isUp: false, hasData: true, score: 51, band: .mixed),
-            WidgetRow(symbol: "CHPS", fullSymbol: "CHPS.TO", name: "CHPS", price: 24.17, changePercent: 1.12, isUp: true, hasData: true, score: 72, band: .bullish),
-            WidgetRow(symbol: "Gold 10K", fullSymbol: "GC=F", name: "Per gram · CAD", price: 49.73, changePercent: 0.55, isUp: true, hasData: true, score: nil, band: nil)
+            WidgetRow(symbol: "XEQT", fullSymbol: "XEQT.TO", name: "iShares Core Equity ETF", price: 36.84, changePercent: 0.42, isUp: true, hasData: true, score: 68, band: .bullish, spark: sampleSpark),
+            WidgetRow(symbol: "Gold 10K", fullSymbol: "GC=F", name: "Per gram · CAD", price: 49.73, changePercent: -0.56, isUp: false, hasData: true, score: nil, band: nil, spark: sampleGoldSpark)
         ],
         isPlaceholder: true,
         mood: MarketMood(vix: 17.4, vixChangePercent: -3.1, vixc: 15.9, asOf: Date()))
@@ -75,16 +81,24 @@ struct StockProvider: TimelineProvider {
     }
 
     /// 10-karat gold price per gram in CAD, from gold futures × USD/CAD.
+    /// Uses an intraday series so the % is the day's move and we get a sparkline.
     static func loadGoldRow() async -> WidgetRow? {
-        let gold = try? await YahooService.shared.fetchQuote(symbol: "GC=F")   // USD per troy oz
-        let fx = try? await YahooService.shared.fetchQuote(symbol: "CAD=X")    // CAD per USD
-        guard let gold, let fx, gold.price > 0, fx.price > 0 else { return nil }
+        async let goldTask = YahooService.shared.fetchCandles(symbol: "GC=F", range: .oneDay)
+        async let fxTask = YahooService.shared.fetchQuote(symbol: "CAD=X")     // CAD per USD
+        guard let goldRes = try? await goldTask, !goldRes.candles.isEmpty,
+              let fx = try? await fxTask, fx.price > 0 else { return nil }
+        let goldQuote = YahooService.quote(from: goldRes.meta, fallbackSymbol: "GC=F")  // USD/troy oz
+        guard goldQuote.price > 0 else { return nil }
+
         let gramsPerTroyOz = 31.1035
-        let perGramPureCAD = gold.price / gramsPerTroyOz * fx.price
-        let value = perGramPureCAD * (10.0 / 24.0)   // 10K purity
+        func perGram10K(_ usdPerOz: Double) -> Double {
+            usdPerOz / gramsPerTroyOz * fx.price * (10.0 / 24.0)   // 10K purity, CAD
+        }
+        let value = perGram10K(goldQuote.price)
+        let spark = goldRes.candles.map { perGram10K($0.close) }.filter { $0.isFinite }.suffix(48)
         return WidgetRow(symbol: "Gold 10K", fullSymbol: "GC=F", name: "Per gram · CAD",
-                         price: value, changePercent: gold.changePercent, isUp: gold.isUp,
-                         hasData: true, score: nil, band: nil)
+                         price: value, changePercent: goldQuote.changePercent, isUp: goldQuote.isUp,
+                         hasData: true, score: nil, band: nil, spark: Array(spark))
     }
 
     static func loadEntry(limit: Int) async -> StockEntry {
@@ -111,20 +125,38 @@ struct StockProvider: TimelineProvider {
                         .replacingOccurrences(of: ".V", with: "")
                     let niceName = TSXCatalog.name(for: item.symbol) ?? item.name
 
-                    guard let result = try? await YahooService.shared.fetchCandles(symbol: item.symbol, range: .oneYear),
-                          !result.candles.isEmpty else {
+                    // Intraday (today) → true daily % + sparkline; one year → score.
+                    async let intradayTask = YahooService.shared.fetchCandles(symbol: item.symbol, range: .oneDay)
+                    async let yearTask = YahooService.shared.fetchCandles(symbol: item.symbol, range: .oneYear)
+                    let intraday = try? await intradayTask
+                    let year = try? await yearTask
+
+                    guard let year, !year.candles.isEmpty else {
                         return (item.symbol, WidgetRow(symbol: display, fullSymbol: item.symbol, name: niceName, price: 0,
                                                        changePercent: 0, isUp: true, hasData: false,
-                                                       score: nil, band: nil))
+                                                       score: nil, band: nil, spark: []))
                     }
-                    let quote = YahooService.quote(from: result.meta, fallbackSymbol: item.symbol)
-                    let rating = TechnicalAnalyzer.analyze(result.candles)
+
+                    // Prefer the intraday meta for the live quote (daily change);
+                    // fall back to the yearly meta if intraday is unavailable.
+                    let quote: Quote
+                    let spark: [Double]
+                    if let intraday, !intraday.candles.isEmpty {
+                        quote = YahooService.quote(from: intraday.meta, fallbackSymbol: item.symbol)
+                        spark = Array(intraday.candles.map(\.close).filter { $0.isFinite }.suffix(48))
+                    } else {
+                        quote = YahooService.quote(from: year.meta, fallbackSymbol: item.symbol)
+                        spark = Array(year.candles.map(\.close).filter { $0.isFinite }.suffix(48))
+                    }
+
+                    let rating = TechnicalAnalyzer.analyze(year.candles)
                     let composite = CompositeEvaluator.evaluate(technical: rating,
                                                                 fundamentals: Fundamentals(),
                                                                 quote: quote)
                     return (item.symbol, WidgetRow(symbol: display, fullSymbol: item.symbol, name: niceName, price: quote.price,
                                                    changePercent: quote.changePercent, isUp: quote.isUp,
-                                                   hasData: true, score: composite?.score, band: composite?.band))
+                                                   hasData: true, score: composite?.score, band: composite?.band,
+                                                   spark: spark))
                 }
             }
             var dict: [String: WidgetRow] = [:]

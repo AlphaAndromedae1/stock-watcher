@@ -113,8 +113,11 @@ struct SingleStockWidget: Widget {
                 .containerBackground(for: .widget) {
                     ZStack {
                         Rectangle().fill(.ultraThinMaterial)
-                        LinearGradient(colors: [Color.white.opacity(0.12), Color.clear, Color.black.opacity(0.10)],
+                        LinearGradient(colors: [Pantone.classicBlue.opacity(0.20), Color.clear,
+                                                Pantone.emerald.opacity(0.12)],
                                        startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [Color.white.opacity(0.10), Color.clear, Color.black.opacity(0.16)],
+                                       startPoint: .top, endPoint: .bottom)
                     }
                 }
         }
@@ -131,16 +134,16 @@ struct SingleStockWidgetView: View {
 
     private func bandColor(_ b: CompositeEvaluator.Band) -> Color {
         switch b {
-        case .veryBullish: return Color(red: 0.11, green: 0.70, blue: 0.42)
-        case .bullish:     return Color(red: 0.30, green: 0.78, blue: 0.47)
-        case .mixed:       return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .bearish:     return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .veryBearish: return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .veryBullish: return Pantone.emerald
+        case .bullish:     return Pantone.greenery
+        case .mixed:       return Pantone.ultimateGray
+        case .bearish:     return Pantone.tangerine
+        case .veryBearish: return Pantone.flameScarlet
         }
     }
 
     private var changeColor: Color {
-        entry.isUp ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color(red: 0.90, green: 0.30, blue: 0.33)
+        entry.isUp ? Pantone.emerald : Pantone.livingCoral
     }
 
     var body: some View {
@@ -160,6 +163,7 @@ struct SingleStockWidgetView: View {
                         .padding(.horizontal, 8).padding(.vertical, 4)
                         .background(bandColor(band).gradient, in: Capsule())
                         .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
+                        .shadow(color: bandColor(band).opacity(0.5), radius: 2.5, x: 0, y: 1.5)
                 }
             }
 

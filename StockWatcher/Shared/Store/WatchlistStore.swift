@@ -62,9 +62,7 @@ public final class WatchlistStore: @unchecked Sendable {
     /// Fixed, self-contained symbol list the widgets display (no App Group
     /// needed). Edit this to change what the widgets show.
     public static let widgetSymbols: [WatchItem] = [
-        WatchItem(symbol: "XEQT.TO", name: "iShares Core Equity ETF"),
-        WatchItem(symbol: "SU.TO",   name: "Suncor Energy"),
-        WatchItem(symbol: "CHPS.TO", name: "CHPS")
+        WatchItem(symbol: "XEQT.TO", name: "iShares Core Equity ETF")
     ]
 
     /// A sensible starter list of large, liquid TSX names.

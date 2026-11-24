@@ -3,27 +3,25 @@ import SwiftUI
 import UIKit
 
 private extension Color {
-    static func change(_ up: Bool) -> Color {
-        up ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color(red: 0.90, green: 0.30, blue: 0.33)
-    }
+    static func change(_ up: Bool) -> Color { up ? Pantone.emerald : Pantone.livingCoral }
 
     static func band(_ b: CompositeEvaluator.Band) -> Color {
         switch b {
-        case .veryBullish: return Color(red: 0.11, green: 0.70, blue: 0.42)
-        case .bullish:     return Color(red: 0.30, green: 0.78, blue: 0.47)
-        case .mixed:       return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .bearish:     return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .veryBearish: return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .veryBullish: return Pantone.emerald
+        case .bullish:     return Pantone.greenery
+        case .mixed:       return Pantone.ultimateGray
+        case .bearish:     return Pantone.tangerine
+        case .veryBearish: return Pantone.flameScarlet
         }
     }
 
     static func mood(_ b: MarketMood.Band) -> Color {
         switch b {
-        case .calm:    return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .normal:  return Color(red: 0.36, green: 0.73, blue: 0.55)
-        case .guarded: return Color(red: 0.92, green: 0.70, blue: 0.25)
-        case .fearful: return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .panic:   return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .calm:    return Pantone.emerald
+        case .normal:  return Pantone.greenery
+        case .guarded: return Pantone.illuminating
+        case .fearful: return Pantone.tangerine
+        case .panic:   return Pantone.flameScarlet
         }
     }
 }
@@ -51,11 +49,15 @@ struct StockWidgetEntryView: View {
         if family == .accessoryRectangular {
             Color.clear
         } else {
-            // Frosted "liquid glass"-style background (material + diagonal sheen).
+            // Frosted "liquid glass" background: material + a PANTONE tint wash
+            // + a diagonal sheen for a little depth.
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
-                LinearGradient(colors: [Color.white.opacity(0.12), Color.clear, Color.black.opacity(0.10)],
+                LinearGradient(colors: [Pantone.classicBlue.opacity(0.20), Color.clear,
+                                        Pantone.emerald.opacity(0.12)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
+                LinearGradient(colors: [Color.white.opacity(0.10), Color.clear, Color.black.opacity(0.16)],
+                               startPoint: .top, endPoint: .bottom)
             }
         }
     }
@@ -92,7 +94,7 @@ struct StockWidgetEntryView: View {
             header
             Spacer(minLength: 2)
             ForEach(entry.rows.prefix(2)) { row in
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     HStack {
                         Text(row.symbol).font(.footnote.bold())
                         Spacer(minLength: 2)
@@ -104,9 +106,13 @@ struct StockWidgetEntryView: View {
                         Spacer(minLength: 2)
                         changeBadge(row)
                     }
+                    if row.hasData && row.spark.count > 1 {
+                        MiniSparkline(values: row.spark, up: row.isUp)
+                            .frame(height: 15)
+                    }
                 }
                 if row.id != entry.rows.prefix(2).last?.id {
-                    Spacer(minLength: 6)
+                    Spacer(minLength: 7)
                 }
             }
             Spacer(minLength: 0)
@@ -135,7 +141,7 @@ struct StockWidgetEntryView: View {
     }
 
     private func rowView(_ row: WidgetRow) -> some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 8) {
             LogoBadge(symbol: row.symbol, size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.symbol)
@@ -144,9 +150,13 @@ struct StockWidgetEntryView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                    .minimumScaleFactor(0.7)
             }
             Spacer(minLength: 4)
+            if row.hasData && row.spark.count > 1 {
+                MiniSparkline(values: row.spark, up: row.isUp)
+                    .frame(width: 46, height: 26)
+            }
             VStack(alignment: .trailing, spacing: 1) {
                 Text(row.hasData ? Fmt.number(row.price) : "—")
                     .font(.headline.monospacedDigit())
@@ -167,6 +177,7 @@ struct StockWidgetEntryView: View {
                 .padding(.vertical, 3)
                 .background(Color.band(band).gradient, in: Capsule())
                 .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
+                .shadow(color: Color.band(band).opacity(0.5), radius: 2.5, x: 0, y: 1.5)
                 .accessibilityLabel("Score \(score), \(band.label)")
         } else {
             Color.clear.frame(width: 1)
