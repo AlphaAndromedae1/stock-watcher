@@ -43,6 +43,7 @@ struct StockDetailView: View {
                     breakdownCard(title: "Moving Averages", group: rating.movingAverages)
                 }
                 Group {
+                    aboutCard
                     fundamentalsCard
                     newsCard
                     disclaimer
@@ -529,6 +530,111 @@ struct StockDetailView: View {
                     if r.id != group.results.last?.id { Divider().opacity(0.4) }
                 }
             }
+        }
+    }
+
+    // MARK: About / Profile
+
+    @ViewBuilder
+    private var aboutCard: some View {
+        if let p = model.profile, !p.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("About").font(.headline)
+                        Spacer()
+                        if let t = p.quoteType {
+                            Text(typeLabel(t))
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(.quaternary, in: Capsule())
+                        }
+                    }
+                    if p.isFund { fundProfileView(p) } else { stockProfileView(p) }
+                }
+            }
+        }
+    }
+
+    private func typeLabel(_ t: String) -> String {
+        switch t.uppercased() {
+        case "ETF": return "ETF"
+        case "MUTUALFUND": return "Fund"
+        case "EQUITY": return "Stock"
+        case "INDEX": return "Index"
+        default: return t.capitalized
+        }
+    }
+
+    @ViewBuilder
+    private func stockProfileView(_ p: StockProfile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let s = p.sector { aboutRow("Sector", s) }
+            if let i = p.industry { aboutRow("Industry", i) }
+            if let c = p.country { aboutRow("Country", c) }
+            if let e = p.employees { aboutRow("Employees", Fmt.bigNumber(Double(e))) }
+            if let sum = p.summary, !sum.isEmpty {
+                Text(sum).font(.caption).foregroundStyle(.secondary).lineLimit(6)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fundProfileView(_ p: StockProfile) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let cat = p.category { aboutRow("Category", cat) }
+            if let fam = p.family { aboutRow("Provider", fam) }
+
+            if p.stockPct != nil || p.bondPct != nil || p.cashPct != nil || p.otherPct != nil {
+                Divider()
+                Text("Asset mix").font(.caption).foregroundStyle(.secondary)
+                let stock = p.stockPct ?? 0
+                let bond = p.bondPct ?? 0
+                let other = p.otherPct ?? 0
+                let cash = p.cashPct ?? max(0, 1 - stock - bond - other)
+                allocRow("Stocks", stock, Color(red: 0.20, green: 0.72, blue: 0.45))
+                if bond > 0.0001 { allocRow("Bonds", bond, Color(red: 0.30, green: 0.55, blue: 0.90)) }
+                if cash > 0.0001 { allocRow("Cash", cash, Color(red: 0.55, green: 0.57, blue: 0.62)) }
+                if other > 0.0001 { allocRow("Other", other, Color(red: 0.70, green: 0.55, blue: 0.30)) }
+            }
+
+            if !p.sectorWeights.isEmpty {
+                Divider()
+                Text("Top sectors").font(.caption).foregroundStyle(.secondary)
+                ForEach(p.sectorWeights.prefix(5)) { w in weightRow(w) }
+            }
+
+            if !p.topHoldings.isEmpty {
+                Divider()
+                Text("Top holdings").font(.caption).foregroundStyle(.secondary)
+                ForEach(p.topHoldings.prefix(6)) { w in weightRow(w) }
+            }
+        }
+    }
+
+    private func aboutRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.subheadline).multilineTextAlignment(.trailing).lineLimit(2)
+        }
+    }
+
+    private func allocRow(_ label: String, _ pct: Double, _ color: Color) -> some View {
+        HStack(spacing: 8) {
+            Text(label).font(.caption).frame(width: 52, alignment: .leading)
+            ProgressView(value: min(max(pct, 0), 1), total: 1).tint(color)
+            Text(Fmt.percentFromFraction(pct, decimals: 0))
+                .font(.caption.monospacedDigit()).frame(width: 40, alignment: .trailing)
+        }
+    }
+
+    private func weightRow(_ w: StockProfile.Weight) -> some View {
+        HStack {
+            Text(w.name).font(.subheadline).lineLimit(1)
+            Spacer()
+            Text(Fmt.percentFromFraction(w.pct, decimals: 1))
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
         }
     }
 

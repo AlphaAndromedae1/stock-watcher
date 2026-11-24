@@ -72,6 +72,43 @@ public struct QuoteSummaryResponse: Decodable {
         public let financialData: FinancialData?
         public let calendarEvents: CalendarEvents?
         public let netSharePurchaseActivity: NetSharePurchaseActivity?
+        public let assetProfile: AssetProfile?
+        public let quoteType: QuoteTypeInfo?
+        public let fundProfile: FundProfile?
+        public let topHoldings: TopHoldings?
+    }
+
+    public struct AssetProfile: Decodable {
+        public let sector: String?
+        public let industry: String?
+        public let country: String?
+        public let website: String?
+        public let longBusinessSummary: String?
+        public let fullTimeEmployees: Int?
+    }
+
+    public struct QuoteTypeInfo: Decodable {
+        public let quoteType: String?
+    }
+
+    public struct FundProfile: Decodable {
+        public let family: String?
+        public let categoryName: String?
+    }
+
+    public struct TopHoldings: Decodable {
+        public let stockPosition: YValue?
+        public let bondPosition: YValue?
+        public let cashPosition: YValue?
+        public let otherPosition: YValue?
+        public let holdings: [HoldingRow]?
+        public let sectorWeightings: [[String: YValue]]?
+
+        public struct HoldingRow: Decodable {
+            public let symbol: String?
+            public let holdingName: String?
+            public let holdingPercent: YValue?
+        }
     }
 
     public struct NetSharePurchaseActivity: Decodable {

@@ -153,6 +153,81 @@ public final class YahooService: @unchecked Sendable {
         return Self.fundamentals(from: r)
     }
 
+    // MARK: - Profile (best effort)
+
+    public func fetchProfile(symbol: String) async -> StockProfile {
+        do { return try await requestProfile(symbol: symbol, retryOnAuth: true) }
+        catch { return StockProfile() }
+    }
+
+    private func requestProfile(symbol: String, retryOnAuth: Bool) async throws -> StockProfile {
+        let crumb = try await crumbs.crumb(session: session, userAgent: Self.userAgent)
+        let modules = "assetProfile,quoteType,fundProfile,topHoldings"
+        let encodedSymbol = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let encodedCrumb = crumb.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? crumb
+        guard let url = URL(string:
+            "https://query2.finance.yahoo.com/v10/finance/quoteSummary/\(encodedSymbol)?modules=\(modules)&crumb=\(encodedCrumb)")
+        else { throw YahooError.badURL }
+
+        let (data, response) = try await session.data(for: makeRequest(url))
+        if let http = response as? HTTPURLResponse {
+            if http.statusCode == 401 && retryOnAuth {
+                await crumbs.invalidate()
+                return try await requestProfile(symbol: symbol, retryOnAuth: false)
+            }
+            if !(200...299).contains(http.statusCode) { throw YahooError.http(http.statusCode) }
+        }
+        let decoded = try JSONDecoder().decode(QuoteSummaryResponse.self, from: data)
+        guard let r = decoded.quoteSummary?.result?.first else { throw YahooError.empty }
+        return Self.profile(from: r)
+    }
+
+    static func profile(from r: QuoteSummaryResponse.Result) -> StockProfile {
+        var p = StockProfile()
+        p.quoteType = r.quoteType?.quoteType
+        p.sector = r.assetProfile?.sector
+        p.industry = r.assetProfile?.industry
+        p.country = r.assetProfile?.country
+        p.website = r.assetProfile?.website
+        p.summary = r.assetProfile?.longBusinessSummary
+        p.employees = r.assetProfile?.fullTimeEmployees
+        p.category = r.fundProfile?.categoryName
+        p.family = r.fundProfile?.family
+        if let th = r.topHoldings {
+            p.stockPct = th.stockPosition?.raw
+            p.bondPct = th.bondPosition?.raw
+            p.cashPct = th.cashPosition?.raw
+            p.otherPct = th.otherPosition?.raw
+            p.sectorWeights = (th.sectorWeightings ?? []).compactMap { dict -> StockProfile.Weight? in
+                guard let pair = dict.first, let raw = pair.value.raw, raw > 0 else { return nil }
+                return StockProfile.Weight(name: prettySector(pair.key), pct: raw)
+            }.sorted { $0.pct > $1.pct }
+            p.topHoldings = (th.holdings ?? []).compactMap { h -> StockProfile.Weight? in
+                guard let raw = h.holdingPercent?.raw, raw > 0 else { return nil }
+                return StockProfile.Weight(name: h.holdingName ?? h.symbol ?? "—", pct: raw)
+            }
+        }
+        return p
+    }
+
+    private static func prettySector(_ key: String) -> String {
+        let map = [
+            "realestate": "Real Estate",
+            "consumer_cyclical": "Consumer Cyclical",
+            "basic_materials": "Basic Materials",
+            "consumer_defensive": "Consumer Defensive",
+            "technology": "Technology",
+            "communication_services": "Communication Services",
+            "financial_services": "Financial Services",
+            "utilities": "Utilities",
+            "industrials": "Industrials",
+            "energy": "Energy",
+            "healthcare": "Healthcare"
+        ]
+        if let v = map[key] { return v }
+        return key.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
     // MARK: - Mapping
 
     static func candles(from result: ChartResponse.Result) -> [Candle] {

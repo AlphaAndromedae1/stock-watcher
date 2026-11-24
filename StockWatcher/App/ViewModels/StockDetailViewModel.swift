@@ -12,6 +12,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var fundamentals = Fundamentals()
     @Published var fundamentalChecks: [FundamentalAnalyzer.Check] = []
     @Published var healthScore: Int?
+    @Published var profile: StockProfile?
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -115,11 +116,12 @@ final class StockDetailViewModel: ObservableObject {
             }
         }
 
-        // Best-effort fundamentals (never throws).
+        // Best-effort fundamentals + profile (never throw).
         let f = await service.fetchFundamentals(symbol: symbol)
         fundamentals = f
         fundamentalChecks = FundamentalAnalyzer.evaluate(f)
         healthScore = FundamentalAnalyzer.healthScore(f)
+        profile = await service.fetchProfile(symbol: symbol)
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).
         composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,

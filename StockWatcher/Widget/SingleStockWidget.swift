@@ -53,7 +53,8 @@ struct TopPickProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<SingleStockEntry>) -> Void) {
         Task {
             let entry = await Self.load()
-            let next = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
+            // Confine refreshes to TSX hours (weekdays 9:30–16:30 ET).
+            let next = MarketHours.nextWidgetRefresh(intervalMinutes: 30)
             completion(Timeline(entries: [entry], policy: .after(next)))
         }
     }
@@ -182,6 +183,8 @@ struct SingleStockWidgetView: View {
             MiniMACD(values: entry.macd)
                 .frame(height: 26)
         }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
         .widgetURL(StockWatcherURL.stock(entry.fullSymbol))
     }
 }

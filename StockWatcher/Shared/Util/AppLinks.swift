@@ -35,4 +35,47 @@ public enum MarketHours {
         let minutes = h * 60 + m
         return minutes >= (9 * 60 + 30) && minutes < (16 * 60)
     }
+
+    /// Next time the widget timeline should refresh, confined to weekdays
+    /// 9:30 AM – 4:30 PM America/Toronto. Outside that window the next refresh
+    /// is parked at the following session's open, so WidgetKit isn't woken
+    /// (and Yahoo isn't polled) overnight or on weekends when prices can't move.
+    public static func nextWidgetRefresh(after date: Date = Date(),
+                                         intervalMinutes: Int = 30) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        guard let tz = TimeZone(identifier: "America/Toronto") else {
+            return date.addingTimeInterval(Double(intervalMinutes) * 60)
+        }
+        cal.timeZone = tz
+        let openMin = 9 * 60 + 30
+        let closeMin = 16 * 60 + 30   // keep refreshing 30 min past the close
+
+        func isWeekday(_ d: Date) -> Bool {
+            let wd = cal.component(.weekday, from: d)
+            return wd != 1 && wd != 7
+        }
+        func minutesOfDay(_ d: Date) -> Int {
+            let c = cal.dateComponents([.hour, .minute], from: d)
+            return (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        }
+        func atOpen(_ d: Date) -> Date {
+            cal.date(bySettingHour: 9, minute: 30, second: 0, of: d) ?? d
+        }
+
+        // A normal interval step from now.
+        let candidate = date.addingTimeInterval(Double(intervalMinutes) * 60)
+
+        if isWeekday(candidate) {
+            let m = minutesOfDay(candidate)
+            if m >= openMin && m <= closeMin { return candidate }  // in session
+            if m < openMin { return atOpen(candidate) }            // pre-market → open
+        }
+
+        // After hours or weekend → roll to the next weekday's open.
+        var day = candidate
+        repeat {
+            day = cal.date(byAdding: .day, value: 1, to: day) ?? day
+        } while !isWeekday(day)
+        return atOpen(day)
+    }
 }

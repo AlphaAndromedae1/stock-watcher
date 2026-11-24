@@ -34,7 +34,16 @@ struct StockWidgetEntryView: View {
 
     var body: some View {
         content
+            .padding(contentPadding)
             .containerBackground(for: .widget) { backgroundStyle }
+    }
+
+    /// Extra breathing room from the card edge (TradingView-style). The lock-
+    /// screen accessory stays flush since its space is tight.
+    private var contentPadding: EdgeInsets {
+        family == .accessoryRectangular
+            ? EdgeInsets()
+            : EdgeInsets(top: 3, leading: 5, bottom: 3, trailing: 5)
     }
 
     @ViewBuilder

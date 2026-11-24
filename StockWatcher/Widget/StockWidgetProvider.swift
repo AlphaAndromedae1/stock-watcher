@@ -49,8 +49,9 @@ struct StockProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<StockEntry>) -> Void) {
         Task {
             let entry = await Self.loadEntry(limit: maxItems(for: context.family))
-            // Refresh roughly every 30 minutes; WidgetKit coalesces as needed.
-            let next = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date().addingTimeInterval(1800)
+            // Refresh ~every 30 min during TSX hours; otherwise park the next
+            // wake-up at the following session's open so we don't poll overnight.
+            let next = MarketHours.nextWidgetRefresh(intervalMinutes: 30)
             completion(Timeline(entries: [entry], policy: .after(next)))
         }
     }

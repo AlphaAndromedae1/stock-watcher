@@ -43,12 +43,19 @@ enum NewsSentiment {
         }
         guard !scores.isEmpty else { return nil }
 
-        let average = scores.reduce(0, +) / Double(scores.count)
-        let positive = scores.filter { $0 > 0.1 }.count
-        let negative = scores.filter { $0 < -0.1 }.count
-        let neutral = scores.count - positive - negative
-        let label: NewsTone.Label = average > 0.1 ? .positive
-                                  : (average < -0.1 ? .negative : .mixed)
+        // Apple's on-device model skews negative on terse financial headlines
+        // ("shares slip", "misses estimates"), so a neutral news day reads as
+        // "Negative" with a tight band. We nudge the midpoint up slightly and
+        // widen the neutral band so only clearly polarized headlines move the
+        // tone off "Mixed". This read is informational only (never scored).
+        let debias = 0.15
+        let adjusted = scores.map { $0 + debias }
+        let average = adjusted.reduce(0, +) / Double(adjusted.count)
+        let positive = adjusted.filter { $0 > 0.3 }.count
+        let negative = adjusted.filter { $0 < -0.3 }.count
+        let neutral = adjusted.count - positive - negative
+        let label: NewsTone.Label = average > 0.2 ? .positive
+                                  : (average < -0.2 ? .negative : .mixed)
         return NewsTone(label: label, average: average,
                         positive: positive, negative: negative, neutral: neutral)
     }
