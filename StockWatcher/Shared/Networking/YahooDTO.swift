@@ -76,6 +76,34 @@ public struct QuoteSummaryResponse: Decodable {
         public let quoteType: QuoteTypeInfo?
         public let fundProfile: FundProfile?
         public let topHoldings: TopHoldings?
+        public let earnings: EarningsModule?
+    }
+
+    /// `earnings` module: quarterly revenue/net-income and EPS actual-vs-estimate.
+    /// We only decode the *quarterly* arrays (their `date` is a string like
+    /// "1Q2024"); the `yearly` arrays are intentionally left out because their
+    /// `date` is a bare integer year, which would break this decode.
+    public struct EarningsModule: Decodable {
+        public let earningsChart: EarningsChart?
+        public let financialsChart: FinancialsChart?
+
+        public struct EarningsChart: Decodable {
+            public let quarterly: [EPSQuarter]?
+            public struct EPSQuarter: Decodable {
+                public let date: String?        // "1Q2024"
+                public let actual: YValue?
+                public let estimate: YValue?
+            }
+        }
+
+        public struct FinancialsChart: Decodable {
+            public let quarterly: [FinRow]?
+            public struct FinRow: Decodable {
+                public let date: String?        // "1Q2024"
+                public let revenue: YValue?
+                public let earnings: YValue?    // net income
+            }
+        }
     }
 
     public struct AssetProfile: Decodable {

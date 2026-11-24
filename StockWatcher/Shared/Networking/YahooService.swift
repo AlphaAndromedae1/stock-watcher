@@ -210,6 +210,74 @@ public final class YahooService: @unchecked Sendable {
         return p
     }
 
+    // MARK: - Earnings history (best effort)
+
+    public func fetchEarnings(symbol: String) async -> EarningsHistory {
+        do { return try await requestEarnings(symbol: symbol, retryOnAuth: true) }
+        catch { return EarningsHistory() }
+    }
+
+    private func requestEarnings(symbol: String, retryOnAuth: Bool) async throws -> EarningsHistory {
+        let crumb = try await crumbs.crumb(session: session, userAgent: Self.userAgent)
+        let modules = "earnings"
+        let encodedSymbol = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let encodedCrumb = crumb.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? crumb
+        guard let url = URL(string:
+            "https://query2.finance.yahoo.com/v10/finance/quoteSummary/\(encodedSymbol)?modules=\(modules)&crumb=\(encodedCrumb)")
+        else { throw YahooError.badURL }
+
+        let (data, response) = try await session.data(for: makeRequest(url))
+        if let http = response as? HTTPURLResponse {
+            if http.statusCode == 401 && retryOnAuth {
+                await crumbs.invalidate()
+                return try await requestEarnings(symbol: symbol, retryOnAuth: false)
+            }
+            if !(200...299).contains(http.statusCode) { throw YahooError.http(http.statusCode) }
+        }
+        let decoded = try JSONDecoder().decode(QuoteSummaryResponse.self, from: data)
+        guard let r = decoded.quoteSummary?.result?.first else { throw YahooError.empty }
+        return Self.earnings(from: r)
+    }
+
+    static func earnings(from r: QuoteSummaryResponse.Result) -> EarningsHistory {
+        var h = EarningsHistory()
+        guard let e = r.earnings else { return h }
+        let fin = e.financialsChart?.quarterly ?? []
+        let eps = e.earningsChart?.quarterly ?? []
+
+        // Merge the two quarterly series on their shared label ("1Q2024"),
+        // preserving Yahoo's chronological (oldest → newest) ordering.
+        var byLabel: [String: EarningsHistory.Quarter] = [:]
+        var order: [String] = []
+
+        for row in fin {
+            guard let label = row.date else { continue }
+            if byLabel[label] == nil { order.append(label) }
+            byLabel[label] = EarningsHistory.Quarter(
+                label: label, revenue: row.revenue?.raw, earnings: row.earnings?.raw,
+                epsActual: byLabel[label]?.epsActual, epsEstimate: byLabel[label]?.epsEstimate)
+        }
+        for row in eps {
+            guard let label = row.date else { continue }
+            if byLabel[label] == nil { order.append(label) }
+            let prev = byLabel[label]
+            byLabel[label] = EarningsHistory.Quarter(
+                label: label, revenue: prev?.revenue, earnings: prev?.earnings,
+                epsActual: row.actual?.raw, epsEstimate: row.estimate?.raw)
+        }
+
+        h.quarters = order.compactMap { byLabel[$0] }
+        return h
+    }
+
+    /// Market benchmark for relative-strength: the TSX Composite for Canadian
+    /// listings (.TO / .V), otherwise the S&P 500.
+    public static func benchmark(for symbol: String) -> (symbol: String, name: String) {
+        let s = symbol.uppercased()
+        if s.hasSuffix(".TO") || s.hasSuffix(".V") { return ("^GSPTSE", "TSX Composite") }
+        return ("^GSPC", "S&P 500")
+    }
+
     private static func prettySector(_ key: String) -> String {
         let map = [
             "realestate": "Real Estate",

@@ -13,6 +13,8 @@ final class StockDetailViewModel: ObservableObject {
     @Published var fundamentalChecks: [FundamentalAnalyzer.Check] = []
     @Published var healthScore: Int?
     @Published var profile: StockProfile?
+    @Published var earnings: EarningsHistory?
+    @Published var relativeStrength: RelativeStrength?
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -122,6 +124,17 @@ final class StockDetailViewModel: ObservableObject {
         fundamentalChecks = FundamentalAnalyzer.evaluate(f)
         healthScore = FundamentalAnalyzer.healthScore(f)
         profile = await service.fetchProfile(symbol: symbol)
+        earnings = await service.fetchEarnings(symbol: symbol)
+
+        // Relative strength vs the market benchmark (informational only). Reuses
+        // the year of daily bars already fetched for the rating.
+        if !ratingCandles.isEmpty {
+            let bench = YahooService.benchmark(for: symbol)
+            if let idx = try? await service.fetchCandles(symbol: bench.symbol, range: .oneYear) {
+                relativeStrength = RelativeStrengthAnalyzer.compute(
+                    stock: ratingCandles, index: idx.candles, benchmarkName: bench.name)
+            }
+        }
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).
         composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,

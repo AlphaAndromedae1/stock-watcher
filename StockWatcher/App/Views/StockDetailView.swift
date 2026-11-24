@@ -31,6 +31,7 @@ struct StockDetailView: View {
                     if model.composite != nil { scoreCard }
                     ratingCard
                     chartCard
+                    relativeStrengthCard
                     oddsCard
                 }
                 Group {
@@ -44,6 +45,7 @@ struct StockDetailView: View {
                 }
                 Group {
                     aboutCard
+                    earningsCard
                     fundamentalsCard
                     newsCard
                     disclaimer
@@ -529,6 +531,143 @@ struct StockDetailView: View {
                     IndicatorRow(result: r)
                     if r.id != group.results.last?.id { Divider().opacity(0.4) }
                 }
+            }
+        }
+    }
+
+    // MARK: Shared tints
+
+    private var gainColor: Color { Color(red: 0.20, green: 0.72, blue: 0.45) }
+    private var lossColor: Color { Color(red: 0.90, green: 0.30, blue: 0.33) }
+
+    // MARK: Relative Strength (vs. market benchmark)
+
+    @ViewBuilder
+    private var relativeStrengthCard: some View {
+        if let rs = model.relativeStrength {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Relative Strength").font(.headline)
+                        Spacer()
+                        Text(rs.verdict.title)
+                            .font(.caption.bold()).foregroundStyle(.white)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(rsVerdictColor(rs.verdict).gradient, in: Capsule())
+                    }
+                    Text("Return vs the \(rs.benchmarkName). Positive means the stock is outpacing the market over that window.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(rs.windows) { w in rsRow(w) }
+                }
+            }
+        }
+    }
+
+    private func rsVerdictColor(_ v: RelativeStrength.Verdict) -> Color {
+        switch v {
+        case .leading: return gainColor
+        case .inLine:  return Color(red: 0.55, green: 0.57, blue: 0.62)
+        case .lagging: return lossColor
+        }
+    }
+
+    private func rsRow(_ w: RelativeStrength.Window) -> some View {
+        HStack(spacing: 10) {
+            Text(w.label).font(.subheadline.bold().monospacedDigit())
+                .frame(width: 32, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Stock \(Fmt.signedPercent(w.stockReturn * 100))")
+                    .font(.caption.monospacedDigit())
+                Text("Index \(Fmt.signedPercent(w.indexReturn * 100))")
+                    .font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            Spacer()
+            HStack(spacing: 3) {
+                Image(systemName: w.excess >= 0 ? "arrow.up.right" : "arrow.down.right")
+                    .font(.caption2.bold())
+                Text(Fmt.signedPercent(w.excess * 100))
+                    .font(.subheadline.monospacedDigit().bold())
+            }
+            .foregroundStyle(w.excess >= 0 ? gainColor : lossColor)
+        }
+    }
+
+    // MARK: Earnings Trend
+
+    @ViewBuilder
+    private var earningsCard: some View {
+        if let e = model.earnings, !e.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Earnings Trend").font(.headline)
+                        Spacer()
+                        if let g = e.revenueTrend { trendBadge("Rev", g) }
+                    }
+                    Text("Last \(e.quarters.count) reported quarters.")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    if e.quarters.contains(where: { $0.revenue != nil }) {
+                        Text("Revenue").font(.caption.bold()).foregroundStyle(.secondary)
+                        Chart(e.quarters) { q in
+                            if let rev = q.revenue {
+                                BarMark(x: .value("Quarter", q.label),
+                                        y: .value("Revenue", rev))
+                                    .foregroundStyle(Color.accentColor.gradient)
+                                    .cornerRadius(3)
+                            }
+                        }
+                        .frame(height: 96)
+                        .chartYAxis {
+                            AxisMarks { value in
+                                AxisGridLine()
+                                AxisValueLabel {
+                                    if let d = value.as(Double.self) { Text(Fmt.bigNumber(d)) }
+                                }
+                            }
+                        }
+                    }
+
+                    if e.quarters.contains(where: { $0.epsActual != nil || $0.epsEstimate != nil }) {
+                        Divider()
+                        HStack {
+                            Text("EPS (actual vs est.)").font(.caption.bold()).foregroundStyle(.secondary)
+                            Spacer()
+                        }
+                        ForEach(e.quarters.reversed()) { q in
+                            if q.epsActual != nil || q.epsEstimate != nil { epsRow(q) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func trendBadge(_ label: String, _ g: Double) -> some View {
+        let up = g >= 0
+        return HStack(spacing: 3) {
+            Image(systemName: up ? "arrow.up.right" : "arrow.down.right").font(.caption2.bold())
+            Text("\(label) \(Fmt.signedPercent(g * 100))").font(.caption.bold())
+        }
+        .foregroundStyle(up ? gainColor : lossColor)
+    }
+
+    private func epsRow(_ q: EarningsHistory.Quarter) -> some View {
+        HStack(spacing: 8) {
+            Text(q.label).font(.caption.monospacedDigit())
+                .frame(width: 58, alignment: .leading).foregroundStyle(.secondary)
+            Spacer()
+            if let est = q.epsEstimate {
+                Text("est \(Fmt.number(est))").font(.caption2.monospacedDigit()).foregroundStyle(.tertiary)
+            }
+            if let act = q.epsActual {
+                let beat = q.beatEstimate ?? true
+                HStack(spacing: 3) {
+                    Image(systemName: beat ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.caption2)
+                    Text(Fmt.number(act)).font(.subheadline.monospacedDigit().bold())
+                }
+                .foregroundStyle(beat ? gainColor : lossColor)
             }
         }
     }
