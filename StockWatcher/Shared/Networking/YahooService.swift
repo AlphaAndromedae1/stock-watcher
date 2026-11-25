@@ -108,15 +108,33 @@ public final class YahooService: @unchecked Sendable {
         return Self.quote(from: meta, fallbackSymbol: symbol)
     }
 
-    public func fetchQuotes(symbols: [String]) async -> [Quote] {
-        await withTaskGroup(of: Quote?.self) { group in
-            for s in symbols {
-                group.addTask { try? await self.fetchQuote(symbol: s) }
+    // MARK: - Symbol search / autocomplete (best effort)
+
+    /// Live symbol lookup for any ticker or company keyword, across exchanges
+    /// (keyless). Best-effort: returns [] on failure so the UI falls back to the
+    /// offline TSX catalog. Results are mapped into `TSXCatalog.Entry` with the
+    /// exchange name in `sector`.
+    public func searchSymbols(query: String) async -> [TSXCatalog.Entry] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 1 else { return [] }
+        let encoded = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q
+        guard let url = URL(string:
+            "https://query1.finance.yahoo.com/v1/finance/search?q=\(encoded)&quotesCount=12&newsCount=0&listsCount=0&enableFuzzyQuery=false")
+        else { return [] }
+        do {
+            let (data, response) = try await session.data(for: makeRequest(url))
+            if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) { return [] }
+            let decoded = try JSONDecoder().decode(YahooSearchResponse.self, from: data)
+            return (decoded.quotes ?? []).compactMap { h in
+                guard let sym = h.symbol, !sym.isEmpty else { return nil }
+                // Skip quote types that aren't tradeable symbols (options, etc.).
+                let type = (h.quoteType ?? "").uppercased()
+                guard type != "OPTION" else { return nil }
+                let name = h.longname ?? h.shortname ?? sym
+                return TSXCatalog.Entry(symbol: sym, name: name, sector: h.exchDisp ?? type)
             }
-            var out: [Quote] = []
-            for await q in group { if let q { out.append(q) } }
-            // Preserve the caller's ordering.
-            return symbols.compactMap { sym in out.first { $0.symbol == sym } }
+        } catch {
+            return []
         }
     }
 

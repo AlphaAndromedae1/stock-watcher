@@ -51,6 +51,20 @@ public struct ChartResponse: Decodable {
     }
 }
 
+// MARK: - search endpoint (v1/finance/search) — symbol autocomplete
+
+public struct YahooSearchResponse: Decodable {
+    public let quotes: [Hit]?
+
+    public struct Hit: Decodable {
+        public let symbol: String?
+        public let shortname: String?
+        public let longname: String?
+        public let exchDisp: String?      // e.g. "Toronto", "NASDAQ"
+        public let quoteType: String?     // EQUITY, ETF, INDEX, CRYPTOCURRENCY, …
+    }
+}
+
 // MARK: - quoteSummary endpoint (v10/finance/quoteSummary)
 
 /// Yahoo wraps most numeric fields as `{ "raw": 1.23, "fmt": "1.23" }`.

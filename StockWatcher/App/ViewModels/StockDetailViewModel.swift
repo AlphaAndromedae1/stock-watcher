@@ -118,22 +118,28 @@ final class StockDetailViewModel: ObservableObject {
             }
         }
 
-        // Best-effort fundamentals + profile (never throw).
-        let f = await service.fetchFundamentals(symbol: symbol)
+        // Best-effort company data — fundamentals, profile, earnings, and the
+        // benchmark series for relative strength — all fetched concurrently so
+        // the detail screen fills in one round-trip instead of four. None throw
+        // except the benchmark chart (guarded with try?).
+        let bench = YahooService.benchmark(for: symbol)
+        async let fundamentalsTask = service.fetchFundamentals(symbol: symbol)
+        async let profileTask = service.fetchProfile(symbol: symbol)
+        async let earningsTask = service.fetchEarnings(symbol: symbol)
+        async let indexTask = service.fetchCandles(symbol: bench.symbol, range: .oneYear)
+
+        let f = await fundamentalsTask
         fundamentals = f
         fundamentalChecks = FundamentalAnalyzer.evaluate(f)
         healthScore = FundamentalAnalyzer.healthScore(f)
-        profile = await service.fetchProfile(symbol: symbol)
-        earnings = await service.fetchEarnings(symbol: symbol)
+        profile = await profileTask
+        earnings = await earningsTask
 
         // Relative strength vs the market benchmark (informational only). Reuses
         // the year of daily bars already fetched for the rating.
-        if !ratingCandles.isEmpty {
-            let bench = YahooService.benchmark(for: symbol)
-            if let idx = try? await service.fetchCandles(symbol: bench.symbol, range: .oneYear) {
-                relativeStrength = RelativeStrengthAnalyzer.compute(
-                    stock: ratingCandles, index: idx.candles, benchmarkName: bench.name)
-            }
+        if !ratingCandles.isEmpty, let idx = try? await indexTask {
+            relativeStrength = RelativeStrengthAnalyzer.compute(
+                stock: ratingCandles, index: idx.candles, benchmarkName: bench.name)
         }
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).

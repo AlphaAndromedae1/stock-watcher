@@ -15,17 +15,18 @@ final class WatchlistViewModel: ObservableObject {
     @Published var items: [WatchItem] = []
     @Published var quotes: [String: Quote] = [:]
     @Published var sparks: [String: [Double]] = [:]   // intraday closes per symbol
+    @Published private(set) var holdings: [String: Holding] = [:]
     @Published var isLoading = false
     @Published var lastUpdated: Date?
 
-    /// Combined gain/loss across holdings that currently have a quote.
+    /// Combined gain/loss across holdings that currently have a quote. Reads the
+    /// cached `holdings` snapshot (no per-render disk decode).
     var portfolio: PortfolioSummary? {
-        let holdings = HoldingsStore.shared.all()
         guard !holdings.isEmpty else { return nil }
         var marketValue = 0.0
         var cost = 0.0
         var count = 0
-        for h in holdings {
+        for h in holdings.values {
             guard let q = quotes[h.symbol], q.price > 0 else { continue }
             marketValue += h.marketValue(at: q.price)
             cost += h.cost
@@ -35,6 +36,12 @@ final class WatchlistViewModel: ObservableObject {
         return PortfolioSummary(marketValue: marketValue, cost: cost, count: count)
     }
 
+    /// Refresh the holdings cache from the store (cheap; call on appear/refresh).
+    func refreshHoldings() {
+        holdings = Dictionary(HoldingsStore.shared.all().map { ($0.symbol, $0) },
+                              uniquingKeysWith: { first, _ in first })
+    }
+
     private let store = WatchlistStore.shared
     private let service = YahooService.shared
 
@@ -42,6 +49,7 @@ final class WatchlistViewModel: ObservableObject {
 
     func onAppear() {
         items = store.load()
+        refreshHoldings()
         if quotes.isEmpty {
             // Show last-known quotes instantly (also works offline), then refresh.
             if let cached = DataCache.shared.load([String: Quote].self, key: cacheKey) {
@@ -53,6 +61,7 @@ final class WatchlistViewModel: ObservableObject {
 
     func refresh() async {
         items = store.load()
+        refreshHoldings()
         guard !items.isEmpty else { quotes = [:]; sparks = [:]; return }
         isLoading = true
 

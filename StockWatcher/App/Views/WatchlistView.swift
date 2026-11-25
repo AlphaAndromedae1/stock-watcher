@@ -75,7 +75,8 @@ struct WatchlistView: View {
                         StockDetailView(symbol: item.symbol, name: item.name)
                     } label: {
                         QuoteRow(item: item, quote: model.quotes[item.symbol],
-                                 spark: model.sparks[item.symbol] ?? [])
+                                 spark: model.sparks[item.symbol] ?? [],
+                                 holding: model.holdings[item.symbol])
                     }
                 }
                 .onDelete(perform: model.remove(atOffsets:))
@@ -112,6 +113,7 @@ struct QuoteRow: View {
     let item: WatchItem
     let quote: Quote?
     var spark: [Double] = []
+    var holding: Holding? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -139,7 +141,7 @@ struct QuoteRow: View {
                             .font(.caption.monospacedDigit())
                     }
                     .foregroundStyle(Color.forChange(q.isUp))
-                    if let h = HoldingsStore.shared.holding(symbol: item.symbol) {
+                    if let h = holding {
                         Text("P/L \(Fmt.signedPercent(h.gainPercent(at: q.price)))")
                             .font(.caption2.monospacedDigit())
                             .foregroundStyle(Color.forChange(h.gain(at: q.price) >= 0))
