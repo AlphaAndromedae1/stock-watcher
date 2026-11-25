@@ -14,6 +14,7 @@ struct PortfolioSummary {
 final class WatchlistViewModel: ObservableObject {
     @Published var items: [WatchItem] = []
     @Published var quotes: [String: Quote] = [:]
+    @Published var sparks: [String: [Double]] = [:]   // intraday closes per symbol
     @Published var isLoading = false
     @Published var lastUpdated: Date?
 
@@ -52,10 +53,32 @@ final class WatchlistViewModel: ObservableObject {
 
     func refresh() async {
         items = store.load()
-        guard !items.isEmpty else { quotes = [:]; return }
+        guard !items.isEmpty else { quotes = [:]; sparks = [:]; return }
         isLoading = true
-        let results = await service.fetchQuotes(symbols: items.map(\.symbol))
-        for q in results { quotes[q.symbol] = q }
+
+        // One intraday request per symbol gives both an accurate *daily* quote
+        // and the closes for the row's sparkline (so the app matches the widget).
+        let service = self.service
+        let symbols = items.map(\.symbol)
+        let results = await withTaskGroup(of: (String, Quote, [Double])?.self) { group -> [(String, Quote, [Double])] in
+            for symbol in symbols {
+                group.addTask {
+                    guard let res = try? await service.fetchCandles(symbol: symbol, range: .oneDay),
+                          !res.candles.isEmpty else { return nil }
+                    let q = YahooService.quote(from: res.meta, fallbackSymbol: symbol)
+                    let spark = res.candles.map(\.close).filter { $0.isFinite }
+                    return (symbol, q, Array(spark.suffix(60)))
+                }
+            }
+            var out: [(String, Quote, [Double])] = []
+            for await r in group { if let r { out.append(r) } }
+            return out
+        }
+
+        for (sym, q, spark) in results {
+            quotes[sym] = q
+            sparks[sym] = spark
+        }
         if !results.isEmpty {
             DataCache.shared.save(quotes, key: cacheKey)
             lastUpdated = Date()

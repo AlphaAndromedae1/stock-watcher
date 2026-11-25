@@ -36,12 +36,12 @@ struct FanChartView: View {
                 .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [4]))
             if let target {
                 RuleMark(y: .value("Target", target))
-                    .foregroundStyle(Color(red: 0.20, green: 0.72, blue: 0.45).opacity(0.6))
+                    .foregroundStyle(Pantone.emerald.opacity(0.6))
                     .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [3]))
             }
             if let stop {
                 RuleMark(y: .value("Stop", stop))
-                    .foregroundStyle(Color(red: 0.90, green: 0.30, blue: 0.33).opacity(0.6))
+                    .foregroundStyle(Pantone.livingCoral.opacity(0.6))
                     .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [3]))
             }
         }

@@ -537,8 +537,8 @@ struct StockDetailView: View {
 
     // MARK: Shared tints
 
-    private var gainColor: Color { Color(red: 0.20, green: 0.72, blue: 0.45) }
-    private var lossColor: Color { Color(red: 0.90, green: 0.30, blue: 0.33) }
+    private var gainColor: Color { Pantone.emerald }
+    private var lossColor: Color { Pantone.livingCoral }
 
     // MARK: Relative Strength (vs. market benchmark)
 
@@ -566,7 +566,7 @@ struct StockDetailView: View {
     private func rsVerdictColor(_ v: RelativeStrength.Verdict) -> Color {
         switch v {
         case .leading: return gainColor
-        case .inLine:  return Color(red: 0.55, green: 0.57, blue: 0.62)
+        case .inLine:  return Pantone.ultimateGray
         case .lagging: return lossColor
         }
     }
@@ -731,10 +731,10 @@ struct StockDetailView: View {
                 let bond = p.bondPct ?? 0
                 let other = p.otherPct ?? 0
                 let cash = p.cashPct ?? max(0, 1 - stock - bond - other)
-                allocRow("Stocks", stock, Color(red: 0.20, green: 0.72, blue: 0.45))
-                if bond > 0.0001 { allocRow("Bonds", bond, Color(red: 0.30, green: 0.55, blue: 0.90)) }
-                if cash > 0.0001 { allocRow("Cash", cash, Color(red: 0.55, green: 0.57, blue: 0.62)) }
-                if other > 0.0001 { allocRow("Other", other, Color(red: 0.70, green: 0.55, blue: 0.30)) }
+                allocRow("Stocks", stock, Pantone.emerald)
+                if bond > 0.0001 { allocRow("Bonds", bond, Pantone.classicBlue) }
+                if cash > 0.0001 { allocRow("Cash", cash, Pantone.ultimateGray) }
+                if other > 0.0001 { allocRow("Other", other, Pantone.marigold) }
             }
 
             if !p.sectorWeights.isEmpty {

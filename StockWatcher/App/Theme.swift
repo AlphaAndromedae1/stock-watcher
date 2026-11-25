@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// UI-side color mapping for ratings and signals. Kept in the app target so the
-/// Shared models stay free of SwiftUI.
+/// UI-side color mapping for ratings and signals, built from the shared PANTONE
+/// palette (see Common/Pantone.swift) so the app matches the widget. Kept in the
+/// app target so the Shared models stay free of SwiftUI.
 extension Recommendation {
     var color: Color {
         switch self {
-        case .strongBuy: return Color(red: 0.11, green: 0.70, blue: 0.42)
-        case .buy:       return Color(red: 0.30, green: 0.78, blue: 0.47)
-        case .neutral:   return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .sell:      return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .strongSell:return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .strongBuy: return Pantone.emerald
+        case .buy:       return Pantone.greenery
+        case .neutral:   return Pantone.ultimateGray
+        case .sell:      return Pantone.tangerine
+        case .strongSell:return Pantone.flameScarlet
         }
     }
 
@@ -27,9 +28,9 @@ extension Recommendation {
 extension Signal {
     var color: Color {
         switch self {
-        case .buy:     return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .neutral: return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .sell:    return Color(red: 0.90, green: 0.30, blue: 0.33)
+        case .buy:     return Pantone.emerald
+        case .neutral: return Pantone.ultimateGray
+        case .sell:    return Pantone.livingCoral
         }
     }
 }
@@ -37,9 +38,9 @@ extension Signal {
 extension FundamentalAnalyzer.Verdict {
     var color: Color {
         switch self {
-        case .good:    return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .fair:    return Color(red: 0.92, green: 0.70, blue: 0.25)
-        case .weak:    return Color(red: 0.90, green: 0.30, blue: 0.33)
+        case .good:    return Pantone.emerald
+        case .fair:    return Pantone.illuminating
+        case .weak:    return Pantone.livingCoral
         case .unknown: return .secondary
         }
     }
@@ -57,11 +58,11 @@ extension FundamentalAnalyzer.Verdict {
 extension CompositeEvaluator.Band {
     var color: Color {
         switch self {
-        case .veryBullish: return Color(red: 0.11, green: 0.70, blue: 0.42)
-        case .bullish:     return Color(red: 0.30, green: 0.78, blue: 0.47)
-        case .mixed:       return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .bearish:     return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .veryBearish: return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .veryBullish: return Pantone.emerald
+        case .bullish:     return Pantone.greenery
+        case .mixed:       return Pantone.ultimateGray
+        case .bearish:     return Pantone.tangerine
+        case .veryBearish: return Pantone.flameScarlet
         }
     }
 }
@@ -69,9 +70,9 @@ extension CompositeEvaluator.Band {
 extension Flow {
     var color: Color {
         switch self {
-        case .accumulating: return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .neutral:      return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .distributing: return Color(red: 0.90, green: 0.30, blue: 0.33)
+        case .accumulating: return Pantone.emerald
+        case .neutral:      return Pantone.ultimateGray
+        case .distributing: return Pantone.livingCoral
         }
     }
     var systemImage: String {
@@ -86,11 +87,11 @@ extension Flow {
 extension MarketMood.Band {
     var color: Color {
         switch self {
-        case .calm:    return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .normal:  return Color(red: 0.36, green: 0.73, blue: 0.55)
-        case .guarded: return Color(red: 0.92, green: 0.70, blue: 0.25)
-        case .fearful: return Color(red: 0.93, green: 0.49, blue: 0.33)
-        case .panic:   return Color(red: 0.90, green: 0.26, blue: 0.29)
+        case .calm:    return Pantone.emerald
+        case .normal:  return Pantone.greenery
+        case .guarded: return Pantone.illuminating
+        case .fearful: return Pantone.tangerine
+        case .panic:   return Pantone.flameScarlet
         }
     }
 }
@@ -98,15 +99,13 @@ extension MarketMood.Band {
 extension NewsTone.Label {
     var color: Color {
         switch self {
-        case .positive: return Color(red: 0.20, green: 0.72, blue: 0.45)
-        case .mixed:    return Color(red: 0.55, green: 0.57, blue: 0.62)
-        case .negative: return Color(red: 0.90, green: 0.30, blue: 0.33)
+        case .positive: return Pantone.emerald
+        case .mixed:    return Pantone.ultimateGray
+        case .negative: return Pantone.livingCoral
         }
     }
 }
 
 extension Color {
-    static func forChange(_ up: Bool) -> Color {
-        up ? Color(red: 0.20, green: 0.72, blue: 0.45) : Color(red: 0.90, green: 0.30, blue: 0.33)
-    }
+    static func forChange(_ up: Bool) -> Color { up ? Pantone.emerald : Pantone.livingCoral }
 }

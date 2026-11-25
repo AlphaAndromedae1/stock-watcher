@@ -74,7 +74,8 @@ struct WatchlistView: View {
                     NavigationLink {
                         StockDetailView(symbol: item.symbol, name: item.name)
                     } label: {
-                        QuoteRow(item: item, quote: model.quotes[item.symbol])
+                        QuoteRow(item: item, quote: model.quotes[item.symbol],
+                                 spark: model.sparks[item.symbol] ?? [])
                     }
                 }
                 .onDelete(perform: model.remove(atOffsets:))
@@ -110,6 +111,7 @@ struct WatchlistView: View {
 struct QuoteRow: View {
     let item: WatchItem
     let quote: Quote?
+    var spark: [Double] = []
 
     var body: some View {
         HStack(spacing: 12) {
@@ -121,8 +123,12 @@ struct QuoteRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 6)
             if let q = quote {
+                if spark.count > 1 {
+                    MiniSparkline(values: spark, up: q.isUp)
+                        .frame(width: 56, height: 28)
+                }
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(Fmt.price(q.price))
                         .font(.headline.monospacedDigit())
