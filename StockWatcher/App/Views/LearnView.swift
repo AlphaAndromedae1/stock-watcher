@@ -10,20 +10,11 @@ struct LearnView: View {
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)
 
+                    // Prominent, important heads-up before the evaluation topics.
+                    topicCard(LearnContent.dayTrading)
+
                     ForEach(LearnContent.topics) { topic in
-                        Card {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label(topic.title, systemImage: topic.icon)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                ForEach(topic.points, id: \.self) { point in
-                                    HStack(alignment: .top, spacing: 8) {
-                                        Text("•").foregroundStyle(.tint)
-                                        Text(LocalizedStringKey(point)).font(.subheadline)
-                                    }
-                                }
-                            }
-                        }
+                        topicCard(topic)
                     }
 
                     Card {
@@ -56,6 +47,23 @@ struct LearnView: View {
             .navigationTitle("Learn")
         }
     }
+
+    @ViewBuilder
+    private func topicCard(_ topic: LearnContent.Topic) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(topic.title, systemImage: topic.icon)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                ForEach(topic.points, id: \.self) { point in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•").foregroundStyle(.tint)
+                        Text(LocalizedStringKey(point)).font(.subheadline)
+                    }
+                }
+            }
+        }
+    }
 }
 
 enum LearnContent {
@@ -65,6 +73,18 @@ enum LearnContent {
         let icon: String
         let points: [String]
     }
+
+    /// Canadian tax heads-up: when the CRA treats trading as a business.
+    static let dayTrading = Topic(
+        title: "Day trading & the CRA", icon: "exclamationmark.triangle.fill", points: [
+        "**There's no fixed \u{201C}day-trader\u{201D} line in Canada.** Unlike the U.S., the CRA has no \u{201C}4 trades in 5 days\u{201D} rule. It decides *case by case* whether your profits are **capital gains** (only half taxable) or **business income** (fully taxable).",
+        "**If your activity looks like a *business* of trading, 100% of the gains are taxed** as ordinary income at your marginal rate — not the one-half (50%) capital-gains inclusion (verify the current rate with the CRA). The flip side: genuine trading losses can then offset other income.",
+        "**Factors the CRA weighs** — no single one decides; it's the overall picture: high **frequency** of trades, **short holding periods** (days/weeks), lots of **time spent** trading, sophisticated market **knowledge**, use of **margin / borrowed money**, **speculative** holdings (options, penny stocks, non-dividend names), and an intent to **flip for a quick profit** rather than hold or earn income.",
+        "**TFSA warning:** a TFSA is **not automatically tax-free.** If the CRA finds you're *carrying on a business* of trading inside it, the profits become **taxable** — and the courts have upheld this. Frequent, speculative trading in a TFSA is the classic trigger. RRSPs carry a similar (rarer) risk.",
+        "**Superficial-loss rule:** sell at a loss and buy the same (or an identical) security back within **30 days** — before or after — and the loss is **denied.** It's added to the cost of the new shares instead of being claimed now.",
+        "**Keep records.** Track every trade's proceeds, adjusted cost base (ACB) and fees in **Canadian dollars** — the CRA expects you to report them, and \u{201C}I lost track\u{201D} isn't accepted.",
+        "**Bottom line:** there's no magic number of trades — it's judgment on the factors above. If you trade actively (*especially inside a TFSA*), read the CRA's **IT-479R \u{201C}Transactions in Securities\u{201D}** and talk to a CPA. This is general information, **not tax advice.**"
+    ])
 
     static let topics: [Topic] = [
         Topic(title: "Understand the business", icon: "building.2.fill", points: [
