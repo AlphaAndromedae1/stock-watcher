@@ -12,6 +12,7 @@ struct LearnView: View {
 
                     // Prominent, important heads-up before the evaluation topics.
                     topicCard(LearnContent.dayTrading)
+                    topicCard(LearnContent.caTaxes)
 
                     ForEach(LearnContent.topics) { topic in
                         topicCard(topic)
@@ -80,10 +81,27 @@ enum LearnContent {
         "**There's no fixed \u{201C}day-trader\u{201D} line in Canada.** Unlike the U.S., the CRA has no \u{201C}4 trades in 5 days\u{201D} rule. It decides *case by case* whether your profits are **capital gains** (only half taxable) or **business income** (fully taxable).",
         "**If your activity looks like a *business* of trading, 100% of the gains are taxed** as ordinary income at your marginal rate — not the one-half (50%) capital-gains inclusion (verify the current rate with the CRA). The flip side: genuine trading losses can then offset other income.",
         "**Factors the CRA weighs** — no single one decides; it's the overall picture: high **frequency** of trades, **short holding periods** (days/weeks), lots of **time spent** trading, sophisticated market **knowledge**, use of **margin / borrowed money**, **speculative** holdings (options, penny stocks, non-dividend names), and an intent to **flip for a quick profit** rather than hold or earn income.",
-        "**TFSA warning:** a TFSA is **not automatically tax-free.** If the CRA finds you're *carrying on a business* of trading inside it, the profits become **taxable** — and the courts have upheld this. Frequent, speculative trading in a TFSA is the classic trigger. RRSPs carry a similar (rarer) risk.",
+        "**TFSA warning:** a TFSA is **not automatically tax-free.** If the CRA finds you're *carrying on a business* of trading inside it, the profits become **taxable** — the courts upheld this in *Ahamed v. The King*. Frequent, speculative trading is the classic trigger. (RRSPs/RRIFs are **exempt** from this — the law shields business income from *qualified investments* there, which is the very argument the courts refused to extend to TFSAs.)",
         "**Superficial-loss rule:** sell at a loss and buy the same (or an identical) security back within **30 days** — before or after — and the loss is **denied.** It's added to the cost of the new shares instead of being claimed now.",
         "**Keep records.** Track every trade's proceeds, adjusted cost base (ACB) and fees in **Canadian dollars** — the CRA expects you to report them, and \u{201C}I lost track\u{201D} isn't accepted.",
         "**Bottom line:** there's no magic number of trades — it's judgment on the factors above. If you trade actively (*especially inside a TFSA*), read the CRA's **IT-479R \u{201C}Transactions in Securities\u{201D}** and talk to a CPA. This is general information, **not tax advice.**"
+    ])
+
+    /// General Canadian tax facts for stock investors. Figures verified for the
+    /// 2026 tax year; always point users to the CRA for the current rules.
+    static let caTaxes = Topic(
+        title: "Taxes & investing (Canada)", icon: "building.columns.fill", points: [
+        "**Capital gains:** you're taxed only when you **sell**, not while you hold. For **2026, one-half (50%)** of a gain is taxable at your marginal rate — the proposed rise to 66.7% was cancelled. (Always confirm the current rate with the CRA.)",
+        "**Capital losses offset capital gains only** — not your salary or other income. Unused losses carry **back 3 years or forward indefinitely.**",
+        "**Adjusted cost base (ACB):** your cost is the **average** across every purchase of the same security, in **Canadian dollars.** Broker T5008 slips often omit it, so tracking ACB is **your** responsibility.",
+        "**Dividends depend on source:** **eligible Canadian** dividends get the **dividend tax credit** (a lower effective rate); **foreign** dividends (e.g. U.S.) are taxed as **ordinary income** with no credit and usually have **~15% withheld** at source.",
+        "**TFSA:** Canadian gains and dividends are **tax-free** — but **U.S. dividend withholding (~15%) still applies and generally can't be recovered,** and active trading can void the shelter (see above).",
+        "**RRSP / RRIF:** grows **tax-deferred**; **U.S. stocks and U.S.-listed ETFs held *directly* are exempt** from the 15% U.S. dividend withholding under the Canada-U.S. treaty. Withdrawals are taxed as income.",
+        "**Non-registered:** capital gains and the dividend tax credit apply, and foreign withholding **can** be recovered via the **foreign tax credit.**",
+        "**Superficial-loss rule:** rebuy the **same or identical** security within **30 days before or after** a loss sale and the loss is **denied.** In a taxable account it shifts into the new shares' cost (deferred); rebuy it **inside your TFSA/RRSP and the loss is gone for good.**",
+        "**Foreign-property reporting (T1135):** if the **total cost** of your foreign property — e.g. U.S. stocks in a **non-registered** account — tops **CAD $100,000** at any point in the year, you must file **Form T1135.** Registered accounts don't count.",
+        "**Return of capital (ROC):** some REIT/ETF distributions aren't taxed now but **reduce your ACB** — meaning a **larger taxable gain later.**",
+        "**Not tax advice.** Rates and rules change yearly and depend on your situation — confirm with the **CRA** and a **CPA** before filing."
     ])
 
     static let topics: [Topic] = [
