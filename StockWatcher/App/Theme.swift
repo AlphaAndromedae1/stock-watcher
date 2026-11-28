@@ -106,6 +106,16 @@ extension NewsTone.Label {
     }
 }
 
+extension ChartSignal.Bias {
+    var color: Color {
+        switch self {
+        case .bullish: return Pantone.emerald
+        case .bearish: return Pantone.livingCoral
+        case .neutral: return Pantone.ultimateGray
+        }
+    }
+}
+
 extension Color {
     static func forChange(_ up: Bool) -> Color { up ? Pantone.emerald : Pantone.livingCoral }
 }

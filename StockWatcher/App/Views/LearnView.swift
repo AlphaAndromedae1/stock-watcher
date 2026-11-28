@@ -147,6 +147,14 @@ enum LearnContent {
             "**Use them as a tiebreaker,** not the whole decision. This app's buy/sell gauge is a technical signal.",
             "**Beware the news cycle:** price already reflects what everyone knows. Edge comes from a differentiated, well-reasoned view."
         ]),
+        Topic(title: "Chart signals — objective, not patterns", icon: "waveform.path.ecg", points: [
+            "**These are rule-based readings from price & volume** — *not* subjective shapes like head-and-shoulders or cup-and-handle (which are noisy and weakly predictive). The detail screen's **Chart Signals** card surfaces them, and none feed the Score.",
+            "**Golden / death cross:** the 50-day average crossing **above** (golden, bullish) or **below** (death, bearish) the 200-day — a slow but widely-watched trend signal.",
+            "**52-week high / low:** where price sits in its yearly range. New highs show strength, new lows weakness — neither is a buy or sell on its own.",
+            "**Trend structure:** higher-highs + higher-lows = uptrend; lower-highs + lower-lows = downtrend; mixed = ranging.",
+            "**Support & resistance:** recent swing lows (floors) and highs (ceilings) where price has turned before.",
+            "**Volume spikes & gaps:** unusually heavy volume or an opening gap usually marks news — *confirmation* of a move, not a reason on its own."
+        ]),
         Topic(title: "Market mood & fear (VIX)", icon: "gauge.medium", points: [
             "**VIX is the \u{201C}fear gauge\u{201D}** — the S&P 500's expected 30-day volatility priced into options. It rises when investors get nervous and spikes when they panic. For Canada, the equivalent is **VIXC** (S&P/TSX 60).",
             "**Rough levels:** under ~15 calm, 15–20 normal, 20–28 guarded, 28–38 fearful, 38+ panic — the same bands the Ideas tab's Market Mood card uses.",

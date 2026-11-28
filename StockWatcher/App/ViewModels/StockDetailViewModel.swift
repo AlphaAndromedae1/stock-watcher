@@ -15,6 +15,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var profile: StockProfile?
     @Published var earnings: EarningsHistory?
     @Published var relativeStrength: RelativeStrength?
+    @Published var chartSignals: [ChartSignal] = []
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -111,6 +112,7 @@ final class StockDetailViewModel: ObservableObject {
             let (candles, meta) = try await service.fetchCandles(symbol: symbol, range: .oneYear)
             rating = TechnicalAnalyzer.analyze(candles)
             ratingCandles = candles
+            chartSignals = ChartSignalScanner.scan(candles)
             if quote == nil { quote = YahooService.quote(from: meta, fallbackSymbol: symbol) }
         } catch {
             if errorMessage == nil {

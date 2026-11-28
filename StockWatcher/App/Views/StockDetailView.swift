@@ -31,6 +31,7 @@ struct StockDetailView: View {
                     if model.composite != nil { scoreCard }
                     ratingCard
                     chartCard
+                    chartSignalsCard
                     relativeStrengthCard
                     oddsCard
                 }
@@ -539,6 +540,37 @@ struct StockDetailView: View {
 
     private var gainColor: Color { Pantone.emerald }
     private var lossColor: Color { Pantone.livingCoral }
+
+    // MARK: Chart Signals (objective, rule-based)
+
+    @ViewBuilder
+    private var chartSignalsCard: some View {
+        if !model.chartSignals.isEmpty {
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Chart Signals").font(.headline)
+                        Spacer()
+                        Text("informational").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Text("Objective, rule-based readings from price & volume — not chart-pattern guesses, and never part of the Score.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(model.chartSignals) { sig in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: sig.systemImage)
+                                .font(.subheadline)
+                                .foregroundStyle(sig.bias.color)
+                                .frame(width: 22)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(sig.title).font(.subheadline.bold())
+                                Text(sig.detail).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // MARK: Relative Strength (vs. market benchmark)
 
