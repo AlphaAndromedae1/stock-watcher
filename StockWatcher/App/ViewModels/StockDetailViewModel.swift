@@ -17,6 +17,9 @@ final class StockDetailViewModel: ObservableObject {
     @Published var relativeStrength: RelativeStrength?
     @Published var chartSignals: [ChartSignal] = []
     @Published var quant: QuantSnapshot?
+    @Published var piotroski: PiotroskiScore?
+    /// Why there is no Piotroski score (not applicable, unavailable, or not enough history).
+    @Published var piotroskiNote: String?
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -170,6 +173,25 @@ final class StockDetailViewModel: ObservableObject {
             sectorName: peerInfo?.sector,
             peerPEs: peerPEs,
             account: SettingsStore.shared.taxAccount)
+
+        // Piotroski F-Score (informational). It applies only to a confirmed operating
+        // company outside financials, where its balance-sheet tests make sense.
+        if profile == nil {
+            piotroski = nil
+            piotroskiNote = "Company profile unavailable, so applicability couldn't be checked."
+        } else if profile?.quoteType?.uppercased() != "EQUITY" {
+            piotroski = nil
+            piotroskiNote = "Not applicable to funds or other non-company securities."
+        } else if profile?.sector == "Financial Services" {
+            piotroski = nil
+            piotroskiNote = "Not applicable to banks and insurers. Their leverage and liquidity don't read like an operating company's."
+        } else if let series = await service.fetchAnnualSeries(symbol: symbol) {
+            piotroski = Piotroski.score(AnnualYears.build(series))
+            piotroskiNote = piotroski == nil ? "Not enough annual history to score." : nil
+        } else {
+            piotroski = nil
+            piotroskiNote = "Annual statements are unavailable right now."
+        }
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).
         composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,

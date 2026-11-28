@@ -49,6 +49,7 @@ struct StockDetailView: View {
                     aboutCard
                     earningsCard
                     fundamentalsCard
+                    piotroskiCard
                     newsCard
                     disclaimer
                 }
@@ -570,6 +571,84 @@ struct StockDetailView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: Piotroski F-Score (informational, never in the Score)
+
+    @ViewBuilder
+    private var piotroskiCard: some View {
+        if let p = model.piotroski {
+            Card { piotroskiContent(p) }
+        } else if let note = model.piotroskiNote {
+            Card {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Piotroski F-Score").font(.headline)
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func piotroskiContent(_ p: PiotroskiScore) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Piotroski F-Score").font(.headline)
+                Spacer()
+                Text("\(p.score) of \(p.computable)")
+                    .font(.title3.monospacedDigit().bold())
+                    .foregroundStyle(piotroskiColor(p))
+            }
+            Text(piotroskiSummary(p))
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(p.tests) { t in
+                piotroskiRow(t)
+            }
+            Text("Compares \(p.latestYear) with the years before it. Informational only, and not part of the Stock Watcher Score.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func piotroskiSummary(_ p: PiotroskiScore) -> String {
+        var text = "Nine yes/no tests of profitability, cash flow, leverage, liquidity, dilution and efficiency. A common reading is 8–9 strong and 0–2 weak."
+        if p.computable < 9 {
+            text += " Tests without enough history are left out of the count."
+        }
+        return text
+    }
+
+    private func piotroskiColor(_ p: PiotroskiScore) -> Color {
+        guard p.computable == 9 else { return Color.primary }
+        if p.score >= 8 { return gainColor }
+        if p.score <= 2 { return lossColor }
+        return Pantone.ultimateGray
+    }
+
+    private func piotroskiRow(_ t: PiotroskiTest) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: piotroskiIcon(t.outcome))
+                .foregroundStyle(piotroskiTint(t.outcome))
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(t.title).font(.subheadline)
+                Text(t.detail).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func piotroskiIcon(_ o: PiotroskiTest.Outcome) -> String {
+        switch o {
+        case .pass: return "checkmark.circle.fill"
+        case .fail: return "xmark.circle.fill"
+        case .unavailable: return "minus.circle"
+        }
+    }
+
+    private func piotroskiTint(_ o: PiotroskiTest.Outcome) -> Color {
+        switch o {
+        case .pass: return gainColor
+        case .fail: return lossColor
+        case .unavailable: return Color.secondary
         }
     }
 

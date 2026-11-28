@@ -155,6 +155,13 @@ enum LearnContent {
             "**Support & resistance:** recent swing lows (floors) and highs (ceilings) where price has turned before.",
             "**Volume spikes & gaps:** unusually heavy volume or an opening gap usually marks news — *confirmation* of a move, not a reason on its own."
         ]),
+        Topic(title: "Piotroski F-Score: a nine-point health check", icon: "checklist", points: [
+            "**Nine yes/no tests** across profitability (positive ROA and cash flow, rising ROA, cash flow above earnings), leverage (debt falling), liquidity (current ratio rising), dilution (no new shares), and efficiency (gross margin and asset turnover rising).",
+            "**Read it as a health check, not a buy signal.** A common reading is 8–9 as strong and 0–2 as weak. A low score is a reason to ask why, not a verdict.",
+            "**It compares the latest year with the years before it,** so it needs two or three years of statements. Tests without that history are left out of the count.",
+            "**Not used for banks or insurers,** where leverage and liquidity don't mean the same thing, or for funds. The app says \u{201C}not applicable\u{201D} for those.",
+            "**The original research leaned on cheap, high book-to-market stocks,** so treat the score as a screen, not a proven forecast."
+        ]),
         Topic(title: "Quant checks: what they measure", icon: "function", points: [
             "**Graham Number:** √(22.5 × EPS × book value per share). A conservative ceiling from Benjamin Graham's defensive-investor work. It applies only to profitable companies and ignores growth, so a price above it is not automatically expensive.",
             "**Momentum (≈12-1):** stocks that rose over the past year have tended to keep rising for a while. That is a tendency, not a guarantee. The app shows about 11 months, because its data window is one year, against the TSX Composite.",

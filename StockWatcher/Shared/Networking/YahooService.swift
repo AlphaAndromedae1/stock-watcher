@@ -76,16 +76,8 @@ public struct StatementProbeResult: Sendable {
         }
     }
 
-    /// One reported annual value.
-    public struct Point: Sendable {
-        public let asOfDate: String
-        public let value: Double
-
-        public init(asOfDate: String, value: Double) {
-            self.asOfDate = asOfDate
-            self.value = value
-        }
-    }
+    /// One reported annual value (the same type the Piotroski series uses).
+    public typealias Point = AnnualPoint
 
     public let symbol: String
     /// Which request produced this result: "no crumb" or "with crumb".
@@ -309,6 +301,83 @@ public final class YahooService: @unchecked Sendable {
         }
         return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
                                     fields: fields, note: nil)
+    }
+
+    // MARK: - Annual series for Piotroski (best effort, cached)
+
+    /// Annual fields the Piotroski F-Score needs.
+    static let piotroskiTypes: [String] = [
+        "annualNetIncome", "annualTotalAssets", "annualOperatingCashFlow", "annualTotalDebt",
+        "annualCurrentAssets", "annualCurrentLiabilities", "annualDilutedAverageShares",
+        "annualTotalRevenue", "annualGrossProfit"
+    ]
+
+    static let annualCacheTTL: TimeInterval = 24 * 60 * 60
+
+    struct AnnualSeriesCache: Codable {
+        let series: [String: [AnnualPoint]]
+    }
+
+    /// Annual history for the Piotroski fields, keyed by Yahoo type name. Cached for
+    /// 24 hours. Failures are not cached, so a transient error doesn't stick.
+    public func fetchAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
+        let key = "annualseries.\(symbol)"
+        let cache = DataCache.shared
+        if let age = cache.age(key: key), age < Self.annualCacheTTL,
+           let hit = cache.load(AnnualSeriesCache.self, key: key) {
+            return hit.series
+        }
+        guard let series = await requestAnnualSeries(symbol: symbol) else { return nil }
+        cache.save(AnnualSeriesCache(series: series), key: key)
+        return series
+    }
+
+    private func requestAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
+        let types = Self.piotroskiTypes.joined(separator: ",")
+        let now = Int(Date().timeIntervalSince1970)
+        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let base = "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/\(encoded)?type=\(types)&period1=1262304000&period2=\(now)"
+        guard let firstURL = URL(string: base) else { return nil }
+        do {
+            var (data, response) = try await session.data(for: makeRequest(firstURL))
+            // Same pattern as the other endpoints: add the crumb only if Yahoo refuses.
+            if let http = response as? HTTPURLResponse, http.statusCode == 401 || http.statusCode == 403 {
+                guard let crumb = try? await crumbs.crumb(session: session, userAgent: Self.userAgent) else {
+                    return nil
+                }
+                let encodedCrumb = crumb.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? crumb
+                guard let retryURL = URL(string: base + "&crumb=\(encodedCrumb)") else { return nil }
+                (data, response) = try await session.data(for: makeRequest(retryURL))
+            }
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                return nil
+            }
+            return Self.parseAnnualSeries(data)
+        } catch {
+            return nil
+        }
+    }
+
+    static func parseAnnualSeries(_ data: Data) -> [String: [AnnualPoint]]? {
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let ts = root["timeseries"] as? [String: Any],
+              let results = ts["result"] as? [[String: Any]] else { return nil }
+        var out: [String: [AnnualPoint]] = [:]
+        for result in results {
+            for (key, value) in result where key.hasPrefix("annual") {
+                guard let rows = value as? [[String: Any]] else { continue }
+                var points: [AnnualPoint] = []
+                for row in rows {
+                    guard let date = row["asOfDate"] as? String,
+                          let raw = (row["reportedValue"] as? [String: Any])?["raw"] as? Double else { continue }
+                    points.append(AnnualPoint(asOfDate: date, value: raw))
+                }
+                if !points.isEmpty {
+                    out[key] = points.sorted { $0.asOfDate > $1.asOfDate }
+                }
+            }
+        }
+        return out.isEmpty ? nil : out
     }
 
     // MARK: - Peer valuation (cached)
