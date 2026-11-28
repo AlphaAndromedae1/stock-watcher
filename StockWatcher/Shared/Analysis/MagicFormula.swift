@@ -1,6 +1,7 @@
 import Foundation
 
 /// One company's inputs for the Magic Formula: the latest annual statements and a price.
+/// Monetary fields are expressed in the price currency once the runner has converted them.
 /// Any field may be nil when Yahoo doesn't report it.
 public struct MagicInputs: Equatable, Sendable {
     public let symbol: String
@@ -17,11 +18,18 @@ public struct MagicInputs: Equatable, Sendable {
     public let currentLiabilities: Double?
     public let currentDebt: Double?
     public let netPPE: Double?
+    /// Currency the statements are in after conversion. Differs from `quoteCurrency` only
+    /// when conversion wasn't possible, and such names are excluded.
+    public let statementCurrency: String?
+    public let quoteCurrency: String?
+    /// Other income or expense for the latest year, used to spot inflated EBIT.
+    public let otherIncome: Double?
 
     public init(symbol: String, name: String, statementsAvailable: Bool, price: Double?,
                 dilutedShares: Double?, ebit: Double?, totalDebt: Double?, cash: Double?,
                 currentAssets: Double?, currentLiabilities: Double?, currentDebt: Double?,
-                netPPE: Double?) {
+                netPPE: Double?, statementCurrency: String? = nil, quoteCurrency: String? = nil,
+                otherIncome: Double? = nil) {
         self.symbol = symbol
         self.name = name
         self.statementsAvailable = statementsAvailable
@@ -34,6 +42,9 @@ public struct MagicInputs: Equatable, Sendable {
         self.currentLiabilities = currentLiabilities
         self.currentDebt = currentDebt
         self.netPPE = netPPE
+        self.statementCurrency = statementCurrency
+        self.quoteCurrency = quoteCurrency
+        self.otherIncome = otherIncome
     }
 }
 
@@ -125,6 +136,22 @@ public enum MagicFormula {
             guard ebit > 0 else {
                 excluded.append(MagicExclusion(symbol: item.symbol, reason: "EBIT not positive"))
                 continue
+            }
+            if let s = item.statementCurrency, let q = item.quoteCurrency, s != q {
+                excluded.append(MagicExclusion(symbol: item.symbol,
+                                               reason: "Statements in \(s), price in \(q), not converted"))
+                continue
+            }
+            // Large non-operating income (one-off gains such as a stake sale) inflates pre-tax
+            // income, and so EBIT. Exclude the name rather than rank a one-off.
+            if let other = item.otherIncome {
+                let share = abs(other) / ebit
+                if share >= Altman.distortionThreshold {
+                    excluded.append(MagicExclusion(
+                        symbol: item.symbol,
+                        reason: "Non-operating income is \(Fmt.percentFromFraction(share, decimals: 0)) of EBIT, so EBIT is inflated by one-off items"))
+                    continue
+                }
             }
             guard let ca = item.currentAssets, let cl = item.currentLiabilities, let ppe = item.netPPE else {
                 excluded.append(MagicExclusion(symbol: item.symbol, reason: "Balance sheet incomplete"))

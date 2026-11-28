@@ -326,8 +326,8 @@ public final class YahooService: @unchecked Sendable {
     /// Annual history for the Piotroski fields, keyed by Yahoo type name. Cached for
     /// 24 hours. Failures are not cached, so a transient error doesn't stick.
     public func fetchAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
-        // "v3" keeps entries cached before the Magic Formula fields were added from being reused.
-        let key = "annualseries.v3.\(symbol)"
+        // "v4" keeps entries cached before currency was recorded from being reused.
+        let key = "annualseries.v4.\(symbol)"
         let cache = DataCache.shared
         if let age = cache.age(key: key), age < Self.annualCacheTTL,
            let hit = cache.load(AnnualSeriesCache.self, key: key) {
@@ -376,7 +376,8 @@ public final class YahooService: @unchecked Sendable {
                 for row in rows {
                     guard let date = row["asOfDate"] as? String,
                           let raw = (row["reportedValue"] as? [String: Any])?["raw"] as? Double else { continue }
-                    points.append(AnnualPoint(asOfDate: date, value: raw))
+                    let currency = row["currencyCode"] as? String
+                    points.append(AnnualPoint(asOfDate: date, value: raw, currency: currency))
                 }
                 if !points.isEmpty {
                     out[key] = points.sorted { $0.asOfDate > $1.asOfDate }

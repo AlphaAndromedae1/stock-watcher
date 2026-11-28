@@ -5,7 +5,7 @@ import Foundation
 /// Names are processed four at a time with a short pause between batches, so Yahoo
 /// isn't hit in bursts. The finished ranking is cached for a day.
 public enum MagicFormulaRunner {
-    public static let cacheKey = "magic.ranking.v1"
+    public static let cacheKey = "magic.ranking.v2"
     /// A ranking older than this is not shown; the user runs it again.
     public static let cacheTTL: TimeInterval = 24 * 60 * 60
 
@@ -20,6 +20,8 @@ public enum MagicFormulaRunner {
     public static func run(progress: @Sendable (Double) -> Void) async -> MagicRanking {
         let universe = MagicFormula.universe
         let batchSize = 4
+        // One exchange rate for the whole run (CAD per USD), used to convert U.S.-dollar statements.
+        let usdToCad = (try? await YahooService.shared.fetchQuote(symbol: "CAD=X"))?.price
         var inputs: [MagicInputs] = []
         var start = 0
 
@@ -28,7 +30,7 @@ public enum MagicFormulaRunner {
             let batch = Array(universe[start..<end])
             let results = await withTaskGroup(of: MagicInputs.self) { group -> [MagicInputs] in
                 for entry in batch {
-                    group.addTask { await loadInputs(entry) }
+                    group.addTask { await loadInputs(entry, usdToCad: usdToCad) }
                 }
                 var out: [MagicInputs] = []
                 for await item in group {
@@ -51,22 +53,33 @@ public enum MagicFormulaRunner {
         return ranking
     }
 
-    private static func loadInputs(_ entry: TSXCatalog.Entry) async -> MagicInputs {
+    private static func loadInputs(_ entry: TSXCatalog.Entry, usdToCad: Double?) async -> MagicInputs {
         let symbol = entry.symbol
         let series = await YahooService.shared.fetchAnnualSeries(symbol: symbol)
         let quote = try? await YahooService.shared.fetchQuote(symbol: symbol)
         let price = quote?.price
+        let quoteCurrency = quote?.currency
 
         guard let series, !series.isEmpty else {
             return MagicInputs(symbol: symbol, name: entry.name, statementsAvailable: false,
                                price: price, dilutedShares: nil, ebit: nil, totalDebt: nil,
                                cash: nil, currentAssets: nil, currentLiabilities: nil,
-                               currentDebt: nil, netPPE: nil)
+                               currentDebt: nil, netPPE: nil, quoteCurrency: quoteCurrency)
         }
 
         let latest = AnnualYears.build(series, maxYears: 1).first?.values ?? [:]
+        let statementCurrency = series.values.compactMap { $0.first?.currency }.first
+
+        // Monetary inputs are converted into the price currency. Shares are counts, so they aren't.
+        let conversion = currencyConversion(from: statementCurrency, to: quoteCurrency, usdToCad: usdToCad)
+        let factor = conversion.factor
+        func scaled(_ key: String) -> Double? {
+            guard let value = latest[key] else { return nil }
+            return value * factor
+        }
+
         var ebit: Double? = nil
-        if let pretax = latest["annualPretaxIncome"], let interest = latest["annualInterestExpense"] {
+        if let pretax = scaled("annualPretaxIncome"), let interest = scaled("annualInterestExpense") {
             ebit = pretax + interest
         }
 
@@ -77,12 +90,32 @@ public enum MagicFormulaRunner {
             price: price,
             dilutedShares: latest["annualDilutedAverageShares"],
             ebit: ebit,
-            totalDebt: latest["annualTotalDebt"],
-            cash: latest["annualCashCashEquivalentsAndShortTermInvestments"],
-            currentAssets: latest["annualCurrentAssets"],
-            currentLiabilities: latest["annualCurrentLiabilities"],
-            currentDebt: latest["annualCurrentDebtAndCapitalLeaseObligation"],
-            netPPE: latest["annualNetPPE"]
+            totalDebt: scaled("annualTotalDebt"),
+            cash: scaled("annualCashCashEquivalentsAndShortTermInvestments"),
+            currentAssets: scaled("annualCurrentAssets"),
+            currentLiabilities: scaled("annualCurrentLiabilities"),
+            currentDebt: scaled("annualCurrentDebtAndCapitalLeaseObligation"),
+            netPPE: scaled("annualNetPPE"),
+            // If conversion wasn't possible, the currencies stay different and the ranker excludes the name.
+            statementCurrency: conversion.converted ? quoteCurrency : statementCurrency,
+            quoteCurrency: quoteCurrency,
+            otherIncome: scaled("annualOtherIncomeExpense")
         )
+    }
+
+    /// Factor that turns statement amounts into the price currency, and whether that
+    /// conversion was possible. Only the USD/CAD pair is converted; anything else is left as is.
+    private static func currencyConversion(from statement: String?, to quote: String?,
+                                           usdToCad: Double?) -> (factor: Double, converted: Bool) {
+        guard let statement, let quote, statement != quote else {
+            return (1, false)
+        }
+        if statement == "USD", quote == "CAD", let rate = usdToCad, rate > 0 {
+            return (rate, true)
+        }
+        if statement == "CAD", quote == "USD", let rate = usdToCad, rate > 0 {
+            return (1 / rate, true)
+        }
+        return (1, false)
     }
 }

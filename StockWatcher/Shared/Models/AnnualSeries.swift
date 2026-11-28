@@ -4,10 +4,13 @@ import Foundation
 public struct AnnualPoint: Codable, Equatable, Sendable {
     public let asOfDate: String
     public let value: Double
+    /// The currency the statement reports in, e.g. "USD" for a company listed in Canada.
+    public let currency: String?
 
-    public init(asOfDate: String, value: Double) {
+    public init(asOfDate: String, value: Double, currency: String? = nil) {
         self.asOfDate = asOfDate
         self.value = value
+        self.currency = currency
     }
 }
 

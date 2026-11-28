@@ -56,6 +56,34 @@ final class MagicFormulaTests: XCTestCase {
         XCTAssertEqual(ranking.universeSize, 2)
     }
 
+    /// Other income of 8 against EBIT of 20 is 40%, above the 20% threshold, so the name is
+    /// excluded. Other income of 3 is 15%, so the name stays in the ranking. A U.S.-dollar
+    /// statement against a Canadian price is excluded because it wasn't converted.
+    func testExcludesInflatedEbitAndUnconvertedCurrency() {
+        let inflated = MagicInputs(symbol: "G", name: "G", statementsAvailable: true, price: 10,
+                                   dilutedShares: 10, ebit: 20, totalDebt: 0, cash: 0,
+                                   currentAssets: 50, currentLiabilities: 30, currentDebt: 0,
+                                   netPPE: 30, statementCurrency: "CAD", quoteCurrency: "CAD",
+                                   otherIncome: 8)
+        let modest = MagicInputs(symbol: "I", name: "I", statementsAvailable: true, price: 10,
+                                 dilutedShares: 10, ebit: 20, totalDebt: 0, cash: 0,
+                                 currentAssets: 50, currentLiabilities: 30, currentDebt: 0,
+                                 netPPE: 30, statementCurrency: "CAD", quoteCurrency: "CAD",
+                                 otherIncome: 3)
+        let usd = MagicInputs(symbol: "H", name: "H", statementsAvailable: true, price: 10,
+                              dilutedShares: 10, ebit: 20, totalDebt: 0, cash: 0,
+                              currentAssets: 50, currentLiabilities: 30, currentDebt: 0,
+                              netPPE: 30, statementCurrency: "USD", quoteCurrency: "CAD",
+                              otherIncome: nil)
+
+        let ranking = MagicFormula.rank([inflated, modest, usd])
+
+        XCTAssertEqual(ranking.rows.map(\.symbol), ["I"])
+        XCTAssertEqual(ranking.excluded.map(\.symbol), ["G", "H"])
+        XCTAssertTrue(ranking.excluded.first?.reason.contains("40%") ?? false)
+        XCTAssertEqual(ranking.excluded.last?.reason, "Statements in USD, price in CAD, not converted")
+    }
+
     /// Greenblatt's universe here is the catalog minus financials: 73 catalog names
     /// less 14 banks and insurers, which is 59.
     func testUniverseIsTheFiftyNineNonFinancialNames() {
