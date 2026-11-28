@@ -305,11 +305,13 @@ public final class YahooService: @unchecked Sendable {
 
     // MARK: - Annual series for Piotroski (best effort, cached)
 
-    /// Annual fields the Piotroski F-Score needs.
-    static let piotroskiTypes: [String] = [
+    /// Annual fields the Piotroski and Altman scores need.
+    static let balanceSheetTypes: [String] = [
         "annualNetIncome", "annualTotalAssets", "annualOperatingCashFlow", "annualTotalDebt",
         "annualCurrentAssets", "annualCurrentLiabilities", "annualDilutedAverageShares",
-        "annualTotalRevenue", "annualGrossProfit"
+        "annualTotalRevenue", "annualGrossProfit", "annualRetainedEarnings",
+        "annualStockholdersEquity", "annualTotalLiabilitiesNetMinorityInterest",
+        "annualPretaxIncome", "annualInterestExpense", "annualOtherIncomeExpense"
     ]
 
     static let annualCacheTTL: TimeInterval = 24 * 60 * 60
@@ -321,7 +323,8 @@ public final class YahooService: @unchecked Sendable {
     /// Annual history for the Piotroski fields, keyed by Yahoo type name. Cached for
     /// 24 hours. Failures are not cached, so a transient error doesn't stick.
     public func fetchAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
-        let key = "annualseries.\(symbol)"
+        // "v2" keeps entries cached before the Altman fields were added from being reused.
+        let key = "annualseries.v2.\(symbol)"
         let cache = DataCache.shared
         if let age = cache.age(key: key), age < Self.annualCacheTTL,
            let hit = cache.load(AnnualSeriesCache.self, key: key) {
@@ -333,7 +336,7 @@ public final class YahooService: @unchecked Sendable {
     }
 
     private func requestAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
-        let types = Self.piotroskiTypes.joined(separator: ",")
+        let types = Self.balanceSheetTypes.joined(separator: ",")
         let now = Int(Date().timeIntervalSince1970)
         let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
         let base = "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/\(encoded)?type=\(types)&period1=1262304000&period2=\(now)"

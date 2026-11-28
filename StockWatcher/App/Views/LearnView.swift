@@ -162,6 +162,13 @@ enum LearnContent {
             "**Not used for banks or insurers,** where leverage and liquidity don't mean the same thing, or for funds. The app says \u{201C}not applicable\u{201D} for those.",
             "**The original research leaned on cheap, high book-to-market stocks,** so treat the score as a screen, not a proven forecast."
         ]),
+        Topic(title: "Altman Z″: a bankruptcy-risk screen", icon: "shield.lefthalf.filled", points: [
+            "**Combines five balance-sheet and profit ratios into one number:** working capital, retained earnings, operating profit (EBIT), and book equity against liabilities. This version is for non-manufacturers.",
+            "**Zones:** above 2.6 is safe, 1.1 to 2.6 is grey, and below 1.1 is distress. A distress reading is a reason to look at the balance sheet, not a forecast of bankruptcy.",
+            "**EBIT here is pre-tax income plus interest expense.** When other income is a large share of EBIT, the score is flagged, because non-operating items are inflating it.",
+            "**Not used for banks, insurers, or funds.** The app says \u{201C}not applicable\u{201D} for those.",
+            "**Informational only.** It isn't part of the Stock Watcher Score."
+        ]),
         Topic(title: "Quant checks: what they measure", icon: "function", points: [
             "**Graham Number:** √(22.5 × EPS × book value per share). A conservative ceiling from Benjamin Graham's defensive-investor work. It applies only to profitable companies and ignores growth, so a price above it is not automatically expensive.",
             "**Momentum (≈12-1):** stocks that rose over the past year have tended to keep rising for a while. That is a tendency, not a guarantee. The app shows about 11 months, because its data window is one year, against the TSX Composite.",

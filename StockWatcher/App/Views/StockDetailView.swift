@@ -50,6 +50,7 @@ struct StockDetailView: View {
                     earningsCard
                     fundamentalsCard
                     piotroskiCard
+                    altmanCard
                     newsCard
                     disclaimer
                 }
@@ -649,6 +650,63 @@ struct StockDetailView: View {
         case .pass: return gainColor
         case .fail: return lossColor
         case .unavailable: return Color.secondary
+        }
+    }
+
+    // MARK: Altman Z″ score (informational, never in the Score)
+
+    @ViewBuilder
+    private var altmanCard: some View {
+        if let z = model.altman {
+            Card { altmanContent(z) }
+        } else if let note = model.altmanNote {
+            Card {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Altman Z″ score").font(.headline)
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func altmanContent(_ z: AltmanScore) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Altman Z″ score").font(.headline)
+                Spacer()
+                Text(Fmt.number(z.z))
+                    .font(.title3.monospacedDigit().bold())
+                    .foregroundStyle(altmanColor(z.zone))
+            }
+            Text("\(z.zone.title). Above 2.6 is safe, 1.1 to 2.6 is grey, and below 1.1 is distress. Built for non-manufacturers, and a distress reading is a prompt to look closer, not a forecast.")
+                .font(.caption).foregroundStyle(.secondary)
+            altmanRow("Working capital ÷ assets", ratio: z.x1, weight: 6.56)
+            altmanRow("Retained earnings ÷ assets", ratio: z.x2, weight: 3.26)
+            altmanRow("EBIT ÷ assets", ratio: z.x3, weight: 6.72)
+            altmanRow("Book equity ÷ liabilities", ratio: z.x4, weight: 1.05)
+            if z.flagged, let share = z.otherIncomeShare {
+                Text("Other income is \(Fmt.percentFromFraction(share, decimals: 0)) of EBIT this year, so EBIT includes non-operating items. Read this score with caution.")
+                    .font(.caption).foregroundStyle(lossColor)
+            }
+            Text("Year-end \(z.latestYear). EBIT is pre-tax income plus interest expense. Informational only, and not part of the Stock Watcher Score.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func altmanRow(_ title: String, ratio: Double, weight: Double) -> some View {
+        HStack {
+            Text(title).font(.subheadline)
+            Spacer()
+            Text("\(Fmt.percentFromFraction(ratio, decimals: 1)) → \(Fmt.number(weight * ratio))")
+                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+    }
+
+    private func altmanColor(_ zone: AltmanZone) -> Color {
+        switch zone {
+        case .safe: return gainColor
+        case .grey: return Pantone.ultimateGray
+        case .distress: return lossColor
         }
     }
 

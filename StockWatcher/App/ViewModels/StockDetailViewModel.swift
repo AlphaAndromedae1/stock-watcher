@@ -20,6 +20,9 @@ final class StockDetailViewModel: ObservableObject {
     @Published var piotroski: PiotroskiScore?
     /// Why there is no Piotroski score (not applicable, unavailable, or not enough history).
     @Published var piotroskiNote: String?
+    @Published var altman: AltmanScore?
+    /// Why there is no Altman score (not applicable, unavailable, or no EBIT).
+    @Published var altmanNote: String?
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -174,23 +177,26 @@ final class StockDetailViewModel: ObservableObject {
             peerPEs: peerPEs,
             account: SettingsStore.shared.taxAccount)
 
-        // Piotroski F-Score (informational). It applies only to a confirmed operating
-        // company outside financials, where its balance-sheet tests make sense.
-        if profile == nil {
+        // Balance-sheet scores (informational). Piotroski and Altman apply only to a
+        // confirmed operating company outside financials.
+        if let note = balanceSheetScoreNote {
             piotroski = nil
-            piotroskiNote = "Company profile unavailable, so applicability couldn't be checked."
-        } else if profile?.quoteType?.uppercased() != "EQUITY" {
-            piotroski = nil
-            piotroskiNote = "Not applicable to funds or other non-company securities."
-        } else if profile?.sector == "Financial Services" {
-            piotroski = nil
-            piotroskiNote = "Not applicable to banks and insurers. Their leverage and liquidity don't read like an operating company's."
+            altman = nil
+            piotroskiNote = note
+            altmanNote = note
         } else if let series = await service.fetchAnnualSeries(symbol: symbol) {
-            piotroski = Piotroski.score(AnnualYears.build(series))
+            let years = AnnualYears.build(series)
+            piotroski = Piotroski.score(years)
+            altman = Altman.zScore(years)
             piotroskiNote = piotroski == nil ? "Not enough annual history to score." : nil
+            altmanNote = altman == nil
+                ? "This company doesn't report the pre-tax income and interest expense needed for EBIT in the latest year."
+                : nil
         } else {
             piotroski = nil
+            altman = nil
             piotroskiNote = "Annual statements are unavailable right now."
+            altmanNote = piotroskiNote
         }
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).
@@ -204,6 +210,20 @@ final class StockDetailViewModel: ObservableObject {
         }
 
         await runSim()
+    }
+
+    /// Why the balance-sheet scores don't apply to this stock, or nil when they do.
+    private var balanceSheetScoreNote: String? {
+        guard let profile else {
+            return "Company profile unavailable, so applicability couldn't be checked."
+        }
+        if profile.quoteType?.uppercased() != "EQUITY" {
+            return "Not applicable to funds or other non-company securities."
+        }
+        if profile.sector == "Financial Services" {
+            return "Not applicable to banks and insurers. Their leverage and liquidity don't read like an operating company's."
+        }
+        return nil
     }
 
     func setSimHorizon(_ days: Int) {
