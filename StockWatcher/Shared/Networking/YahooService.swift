@@ -61,14 +61,29 @@ public struct StatementProbeResult: Sendable {
         public let latestValue: Double?
         /// The filing's reporting currency, e.g. "CAD" or "USD".
         public let currency: String?
+        /// Every reported annual value, newest first.
+        public let series: [Point]
 
         public init(name: String, years: Int, latest: String?,
-                    latestValue: Double? = nil, currency: String? = nil) {
+                    latestValue: Double? = nil, currency: String? = nil,
+                    series: [Point] = []) {
             self.name = name
             self.years = years
             self.latest = latest
             self.latestValue = latestValue
             self.currency = currency
+            self.series = series
+        }
+    }
+
+    /// One reported annual value.
+    public struct Point: Sendable {
+        public let asOfDate: String
+        public let value: Double
+
+        public init(asOfDate: String, value: Double) {
+            self.asOfDate = asOfDate
+            self.value = value
         }
     }
 
@@ -283,9 +298,14 @@ public final class YahooService: @unchecked Sendable {
             let latestReported = newest?["reportedValue"] as? [String: Any]
             let latestRaw = latestReported?["raw"] as? Double
             let currency = newest?["currencyCode"] as? String
+            let series: [StatementProbeResult.Point] = reported.compactMap { (row: [String: Any]) -> StatementProbeResult.Point? in
+                guard let date = row["asOfDate"] as? String,
+                      let raw = (row["reportedValue"] as? [String: Any])?["raw"] as? Double else { return nil }
+                return StatementProbeResult.Point(asOfDate: date, value: raw)
+            }.sorted { $0.asOfDate > $1.asOfDate }
             fields.append(StatementProbeResult.Field(name: type, years: reported.count,
                                                      latest: latestDate, latestValue: latestRaw,
-                                                     currency: currency))
+                                                     currency: currency, series: series))
         }
         return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
                                     fields: fields, note: nil)

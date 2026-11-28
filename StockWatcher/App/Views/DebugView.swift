@@ -114,6 +114,25 @@ struct DebugView: View {
         probeOutput = blocks.joined(separator: "\n\n")
     }
 
+    /// Fields shown year by year: the EBIT inputs and the debt lines the
+    /// reclassification and definition checks depend on.
+    private static let historyFields = [
+        "annualPretaxIncome", "annualInterestExpense", "annualOperatingIncome",
+        "annualOtherIncomeExpense", "annualEBIT", "annualEBITDA", "annualNetIncome",
+        "annualTotalDebt", "annualCurrentDebtAndCapitalLeaseObligation", "annualLongTermDebt",
+        "annualStockholdersEquity", "annualTotalAssets", "annualDilutedAverageShares"
+    ]
+
+    private static func formatHistory(_ f: StatementProbeResult.Field) -> String? {
+        guard !f.series.isEmpty else { return nil }
+        let name = f.name.replacingOccurrences(of: "annual", with: "")
+        let unit = f.currency.map { " " + $0 } ?? ""
+        let parts = f.series.map { point in
+            "\(point.asOfDate.prefix(4)) \(Fmt.bigNumber(point.value))"
+        }
+        return "  \(name): " + parts.joined(separator: " · ") + unit
+    }
+
     private static func formatProbe(_ r: StatementProbeResult) -> String {
         let status = r.httpStatus.map { "HTTP \($0)" } ?? "no response"
         var lines: [String] = ["\(r.symbol)  \(status)  (\(r.path))"]
@@ -133,6 +152,14 @@ struct DebugView: View {
                 }
                 lines.append("  \(name): \(f.years) yrs, \(f.latest ?? "?") = \(valueText)\(flag)")
             }
+        }
+        // Year-by-year history for the focus fields.
+        let history = historyFields.compactMap { name in
+            r.fields.first { $0.name == name }.flatMap(formatHistory)
+        }
+        if !history.isEmpty {
+            lines.append("  -- year by year --")
+            lines.append(contentsOf: history)
         }
         return lines.joined(separator: "\n")
     }
