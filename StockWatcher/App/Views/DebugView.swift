@@ -4,6 +4,13 @@ import UIKit
 struct DebugView: View {
     @State private var testing = false
     @State private var testOutput: String?
+    @State private var probing = false
+    @State private var probeOutput: String?
+
+    /// Non-financial TSX names plus a U.S. control. Banks are avoided on purpose:
+    /// they don't report gross profit or a current-asset split, so their gaps
+    /// would look like missing data.
+    private static let probeSymbols = ["CNR.TO", "SU.TO", "SHOP.TO", "AAPL"]
 
     private var appGroupActive: Bool { DataCache.shared.appGroupAvailable }
 
@@ -54,6 +61,28 @@ struct DebugView: View {
                 }
             }
 
+            Section {
+                Button {
+                    Task { await runStatementProbe() }
+                } label: {
+                    HStack {
+                        Text("Probe annual statements")
+                        Spacer()
+                        if probing { ProgressView() }
+                    }
+                }
+                .disabled(probing)
+                if let out = probeOutput {
+                    Text(out).font(.caption2.monospaced()).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+            } header: {
+                Text("Tier-2 data check")
+            } footer: {
+                Text("Requests annual income, balance-sheet and cash-flow history for CNR.TO, SU.TO, SHOP.TO and AAPL (control). Debug only; not used in any score.")
+            }
+
             Section("Environment") {
                 row("App version", SettingsView.versionString)
                 row("iOS", UIDevice.current.systemVersion)
@@ -68,6 +97,36 @@ struct DebugView: View {
 
     private func row(_ label: String, _ value: String) -> some View {
         HStack { Text(label); Spacer(); Text(value).foregroundStyle(.secondary) }
+    }
+
+    private func runStatementProbe() async {
+        probing = true
+        probeOutput = nil
+        defer { probing = false }
+        var blocks: [String] = []
+        for (i, sym) in Self.probeSymbols.enumerated() {
+            // Pause between symbols so the probe doesn't look like a burst to Yahoo.
+            if i > 0 { try? await Task.sleep(nanoseconds: 1_500_000_000) }
+            let result = await YahooService.shared.probeAnnualStatements(symbol: sym)
+            blocks.append(Self.formatProbe(result))
+        }
+        probeOutput = blocks.joined(separator: "\n\n")
+    }
+
+    private static func formatProbe(_ r: StatementProbeResult) -> String {
+        let status = r.httpStatus.map { "HTTP \($0)" } ?? "no response"
+        var lines: [String] = ["\(r.symbol)  \(status)  (\(r.path))"]
+        if let note = r.note { lines.append("  note: \(note)") }
+        for f in r.fields {
+            let name = f.name.replacingOccurrences(of: "annual", with: "")
+            if f.years == 0 {
+                lines.append("  \(name): missing")
+            } else {
+                let flag = f.years < 2 ? "  ⚠ under 2 yrs" : ""
+                lines.append("  \(name): \(f.years) yrs, latest \(f.latest ?? "?")\(flag)")
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func runTest() async {

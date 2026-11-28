@@ -47,6 +47,41 @@ public enum ChartRange: String, CaseIterable, Sendable {
     }
 }
 
+/// Result of probing whether Yahoo returns annual statement history for a symbol.
+/// Debug-only: it tells us whether Tier-2 metrics (Piotroski, Altman, Magic Formula)
+/// are feasible from this data source. Never used in a score.
+public struct StatementProbeResult: Sendable {
+    public struct Field: Sendable {
+        public let name: String
+        /// Annual values that carry a reported number.
+        public let years: Int
+        /// The most recent `asOfDate` returned, e.g. "2025-10-31".
+        public let latest: String?
+
+        public init(name: String, years: Int, latest: String?) {
+            self.name = name
+            self.years = years
+            self.latest = latest
+        }
+    }
+
+    public let symbol: String
+    /// Which request produced this result: "no crumb" or "with crumb".
+    public let path: String
+    public let httpStatus: Int?
+    public let fields: [Field]
+    /// Error text or a short body excerpt when the request did not succeed.
+    public let note: String?
+
+    public init(symbol: String, path: String, httpStatus: Int?, fields: [Field], note: String?) {
+        self.symbol = symbol
+        self.path = path
+        self.httpStatus = httpStatus
+        self.fields = fields
+        self.note = note
+    }
+}
+
 /// Talks to Yahoo Finance's public endpoints. No API key required.
 ///
 /// - The chart endpoint (prices/history) is stable and is the backbone of the
@@ -136,6 +171,97 @@ public final class YahooService: @unchecked Sendable {
         } catch {
             return []
         }
+    }
+
+    // MARK: - Annual statement probe (debug only, Tier-2 data check)
+
+    /// Annual statement types the Tier-2 metrics would need.
+    static let statementTypes: [String] = [
+        "annualTotalRevenue", "annualGrossProfit", "annualEBIT", "annualNetIncome",
+        "annualOperatingCashFlow", "annualTotalAssets", "annualTotalLiabilitiesNetMinorityInterest",
+        "annualCurrentAssets", "annualCurrentLiabilities", "annualRetainedEarnings",
+        "annualLongTermDebt", "annualStockholdersEquity", "annualDilutedAverageShares",
+        "annualRepurchaseOfCapitalStock", "annualCashDividendsPaid"
+    ]
+
+    /// Asks the fundamentals-timeseries endpoint for annual statement history.
+    /// Tries without a crumb first, and adds the crumb only if Yahoo refuses.
+    public func probeAnnualStatements(symbol: String) async -> StatementProbeResult {
+        let types = Self.statementTypes.joined(separator: ",")
+        let now = Int(Date().timeIntervalSince1970)
+        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let base = "https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/\(encoded)?type=\(types)&period1=1262304000&period2=\(now)"
+
+        let first = await runStatementRequest(urlString: base, symbol: symbol, path: "no crumb")
+        guard first.httpStatus == 401 || first.httpStatus == 403 else { return first }
+
+        guard let crumb = try? await crumbs.crumb(session: session, userAgent: Self.userAgent) else {
+            return StatementProbeResult(symbol: symbol, path: "with crumb", httpStatus: nil,
+                                        fields: [], note: "could not obtain a crumb")
+        }
+        let encodedCrumb = crumb.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? crumb
+        return await runStatementRequest(urlString: base + "&crumb=\(encodedCrumb)",
+                                         symbol: symbol, path: "with crumb")
+    }
+
+    private func runStatementRequest(urlString: String, symbol: String, path: String) async -> StatementProbeResult {
+        guard let url = URL(string: urlString) else {
+            return StatementProbeResult(symbol: symbol, path: path, httpStatus: nil,
+                                        fields: [], note: "bad URL")
+        }
+        do {
+            let (data, response) = try await session.data(for: makeRequest(url))
+            let status = (response as? HTTPURLResponse)?.statusCode
+            guard let status, (200...299).contains(status) else {
+                let excerpt = String(data: data.prefix(120), encoding: .utf8) ?? "non-text body"
+                return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
+                                            fields: [], note: excerpt)
+            }
+            return Self.parseStatements(data, symbol: symbol, path: path, status: status)
+        } catch {
+            return StatementProbeResult(symbol: symbol, path: path, httpStatus: nil,
+                                        fields: [], note: error.localizedDescription)
+        }
+    }
+
+    /// Parses the timeseries JSON without a strict Codable model, so a shape
+    /// mismatch is reported as such instead of being misread as "no data".
+    static func parseStatements(_ data: Data, symbol: String, path: String, status: Int) -> StatementProbeResult {
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let ts = root["timeseries"] as? [String: Any] else {
+            return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
+                                        fields: [], note: "unexpected response shape")
+        }
+        if let err = ts["error"] as? [String: Any], let desc = err["description"] as? String {
+            return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
+                                        fields: [], note: "Yahoo error: \(desc)")
+        }
+
+        // Each result element holds one array per requested type, keyed by the type name.
+        let results = ts["result"] as? [[String: Any]] ?? []
+        var rowsByType: [String: [[String: Any]]] = [:]
+        for result in results {
+            for (key, value) in result where key.hasPrefix("annual") {
+                if let rows = value as? [[String: Any]] {
+                    rowsByType[key] = rows
+                }
+            }
+        }
+
+        var fields: [StatementProbeResult.Field] = []
+        for type in statementTypes {
+            guard let rows = rowsByType[type] else {
+                fields.append(StatementProbeResult.Field(name: type, years: 0, latest: nil))
+                continue
+            }
+            let reported = rows.filter { row in
+                (row["reportedValue"] as? [String: Any])?["raw"] != nil
+            }
+            let latest = reported.compactMap { $0["asOfDate"] as? String }.max()
+            fields.append(StatementProbeResult.Field(name: type, years: reported.count, latest: latest))
+        }
+        return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
+                                    fields: fields, note: nil)
     }
 
     // MARK: - Peer valuation (cached)
