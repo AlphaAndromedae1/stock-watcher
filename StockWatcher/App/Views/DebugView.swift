@@ -80,7 +80,7 @@ struct DebugView: View {
             } header: {
                 Text("Tier-2 data check")
             } footer: {
-                Text("Requests annual income, balance-sheet and cash-flow history for CNR.TO, SU.TO, SHOP.TO and AAPL (control). Debug only; not used in any score.")
+                Text("Annual income, balance-sheet and cash-flow history for CNR.TO, SU.TO, SHOP.TO and AAPL (control). Each field shows its latest reported value in the filing's currency, for spot-checking against annual reports. Debug only; not used in any score.")
             }
 
             Section("Environment") {
@@ -123,7 +123,12 @@ struct DebugView: View {
                 lines.append("  \(name): missing")
             } else {
                 let flag = f.years < 2 ? "  ⚠ under 2 yrs" : ""
-                lines.append("  \(name): \(f.years) yrs, latest \(f.latest ?? "?")\(flag)")
+                var valueText = "no value"
+                if let v = f.latestValue {
+                    let unit = f.currency.map { " " + $0 } ?? ""
+                    valueText = Fmt.bigNumber(v) + unit
+                }
+                lines.append("  \(name): \(f.years) yrs, \(f.latest ?? "?") = \(valueText)\(flag)")
             }
         }
         return lines.joined(separator: "\n")

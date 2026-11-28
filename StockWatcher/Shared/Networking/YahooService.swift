@@ -57,11 +57,18 @@ public struct StatementProbeResult: Sendable {
         public let years: Int
         /// The most recent `asOfDate` returned, e.g. "2025-10-31".
         public let latest: String?
+        /// The most recent reported value in the filing's currency (raw, not scaled).
+        public let latestValue: Double?
+        /// The filing's reporting currency, e.g. "CAD" or "USD".
+        public let currency: String?
 
-        public init(name: String, years: Int, latest: String?) {
+        public init(name: String, years: Int, latest: String?,
+                    latestValue: Double? = nil, currency: String? = nil) {
             self.name = name
             self.years = years
             self.latest = latest
+            self.latestValue = latestValue
+            self.currency = currency
         }
     }
 
@@ -181,7 +188,10 @@ public final class YahooService: @unchecked Sendable {
         "annualOperatingCashFlow", "annualTotalAssets", "annualTotalLiabilitiesNetMinorityInterest",
         "annualCurrentAssets", "annualCurrentLiabilities", "annualRetainedEarnings",
         "annualLongTermDebt", "annualStockholdersEquity", "annualDilutedAverageShares",
-        "annualRepurchaseOfCapitalStock", "annualCashDividendsPaid"
+        "annualRepurchaseOfCapitalStock", "annualCashDividendsPaid",
+        // Needed for Magic Formula (enterprise value and invested capital).
+        "annualCashAndCashEquivalents", "annualCashCashEquivalentsAndShortTermInvestments",
+        "annualNetPPE"
     ]
 
     /// Asks the fundamentals-timeseries endpoint for annual statement history.
@@ -257,8 +267,17 @@ public final class YahooService: @unchecked Sendable {
             let reported = rows.filter { row in
                 (row["reportedValue"] as? [String: Any])?["raw"] != nil
             }
-            let latest = reported.compactMap { $0["asOfDate"] as? String }.max()
-            fields.append(StatementProbeResult.Field(name: type, years: reported.count, latest: latest))
+            // The newest row by as-of date carries the latest reported value.
+            let newest = reported.max { a, b in
+                ((a["asOfDate"] as? String) ?? "") < ((b["asOfDate"] as? String) ?? "")
+            }
+            let latestDate = newest?["asOfDate"] as? String
+            let latestReported = newest?["reportedValue"] as? [String: Any]
+            let latestRaw = latestReported?["raw"] as? Double
+            let currency = newest?["currencyCode"] as? String
+            fields.append(StatementProbeResult.Field(name: type, years: reported.count,
+                                                     latest: latestDate, latestValue: latestRaw,
+                                                     currency: currency))
         }
         return StatementProbeResult(symbol: symbol, path: path, httpStatus: status,
                                     fields: fields, note: nil)
