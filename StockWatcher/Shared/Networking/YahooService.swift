@@ -191,7 +191,15 @@ public final class YahooService: @unchecked Sendable {
         "annualRepurchaseOfCapitalStock", "annualCashDividendsPaid",
         // Needed for Magic Formula (enterprise value and invested capital).
         "annualCashAndCashEquivalents", "annualCashCashEquivalentsAndShortTermInvestments",
-        "annualNetPPE"
+        "annualNetPPE",
+        // EBIT cross-check: which definition Yahoo's EBIT actually follows.
+        "annualOperatingIncome", "annualPretaxIncome", "annualInterestExpense",
+        "annualOtherIncomeExpense", "annualEBITDA",
+        // Debt including the current portion: tests whether a missing long-term debt
+        // line is a reclassification to current rather than a true zero.
+        "annualTotalDebt", "annualCurrentDebtAndCapitalLeaseObligation",
+        // Cash-flow and working-capital cross-checks.
+        "annualCapitalExpenditure", "annualFreeCashFlow", "annualWorkingCapital"
     ]
 
     /// Asks the fundamentals-timeseries endpoint for annual statement history.

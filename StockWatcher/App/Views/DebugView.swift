@@ -7,10 +7,11 @@ struct DebugView: View {
     @State private var probing = false
     @State private var probeOutput: String?
 
-    /// Non-financial TSX names plus a U.S. control. Banks are avoided on purpose:
+    /// Non-financial TSX names, a U.S. control, and DOL.TO, which has a non-December
+    /// year-end to test how the latest year is picked. Banks are avoided on purpose:
     /// they don't report gross profit or a current-asset split, so their gaps
     /// would look like missing data.
-    private static let probeSymbols = ["CNR.TO", "SU.TO", "SHOP.TO", "AAPL"]
+    private static let probeSymbols = ["CNR.TO", "SU.TO", "SHOP.TO", "DOL.TO", "AAPL"]
 
     private var appGroupActive: Bool { DataCache.shared.appGroupAvailable }
 
@@ -80,7 +81,7 @@ struct DebugView: View {
             } header: {
                 Text("Tier-2 data check")
             } footer: {
-                Text("Annual income, balance-sheet and cash-flow history for CNR.TO, SU.TO, SHOP.TO and AAPL (control). Each field shows its latest reported value in the filing's currency, for spot-checking against annual reports. Debug only; not used in any score.")
+                Text("Annual income, balance-sheet and cash-flow history for CNR.TO, SU.TO, SHOP.TO, DOL.TO and AAPL (control). Each field shows its latest reported value in the filing's currency, for spot-checking against annual reports. Debug only; not used in any score.")
             }
 
             Section("Environment") {
@@ -116,6 +117,8 @@ struct DebugView: View {
     private static func formatProbe(_ r: StatementProbeResult) -> String {
         let status = r.httpStatus.map { "HTTP \($0)" } ?? "no response"
         var lines: [String] = ["\(r.symbol)  \(status)  (\(r.path))"]
+        let present = r.fields.filter { $0.years > 0 }.count
+        lines.append("  \(present) of \(r.fields.count) fields returned")
         if let note = r.note { lines.append("  note: \(note)") }
         for f in r.fields {
             let name = f.name.replacingOccurrences(of: "annual", with: "")
