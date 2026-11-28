@@ -311,7 +311,10 @@ public final class YahooService: @unchecked Sendable {
         "annualCurrentAssets", "annualCurrentLiabilities", "annualDilutedAverageShares",
         "annualTotalRevenue", "annualGrossProfit", "annualRetainedEarnings",
         "annualStockholdersEquity", "annualTotalLiabilitiesNetMinorityInterest",
-        "annualPretaxIncome", "annualInterestExpense", "annualOtherIncomeExpense"
+        "annualPretaxIncome", "annualInterestExpense", "annualOtherIncomeExpense",
+        // Magic Formula: cash, the current part of debt, and net PP&E.
+        "annualCashCashEquivalentsAndShortTermInvestments", "annualCurrentDebtAndCapitalLeaseObligation",
+        "annualNetPPE"
     ]
 
     static let annualCacheTTL: TimeInterval = 24 * 60 * 60
@@ -323,8 +326,8 @@ public final class YahooService: @unchecked Sendable {
     /// Annual history for the Piotroski fields, keyed by Yahoo type name. Cached for
     /// 24 hours. Failures are not cached, so a transient error doesn't stick.
     public func fetchAnnualSeries(symbol: String) async -> [String: [AnnualPoint]]? {
-        // "v2" keeps entries cached before the Altman fields were added from being reused.
-        let key = "annualseries.v2.\(symbol)"
+        // "v3" keeps entries cached before the Magic Formula fields were added from being reused.
+        let key = "annualseries.v3.\(symbol)"
         let cache = DataCache.shared
         if let age = cache.age(key: key), age < Self.annualCacheTTL,
            let hit = cache.load(AnnualSeriesCache.self, key: key) {

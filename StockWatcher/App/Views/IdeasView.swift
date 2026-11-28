@@ -3,6 +3,7 @@ import UIKit
 
 struct IdeasView: View {
     @StateObject private var model = IdeasViewModel()
+    @StateObject private var magic = MagicFormulaViewModel()
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct IdeasView: View {
                         MarketMoodCard(mood: mood)
                     }
                     recommendedCard
+                    MagicFormulaCard(model: magic)
                     disclaimer
                 }
                 .padding()
@@ -31,7 +33,10 @@ struct IdeasView: View {
                 }
             }
         }
-        .task { model.onAppear() }
+        .task {
+            model.onAppear()
+            magic.onAppear()
+        }
         .refreshable { await model.refresh() }
     }
 

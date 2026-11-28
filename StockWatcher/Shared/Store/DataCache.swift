@@ -55,6 +55,27 @@ public final class DataCache: @unchecked Sendable {
         for item in items { try? fm.removeItem(at: item) }
     }
 
+    /// Deletes entries not written in the last `age` seconds, so the cache can't grow
+    /// without limit. Returns how many were removed.
+    @discardableResult
+    public func purge(olderThan age: TimeInterval) -> Int {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: baseURL, includingPropertiesForKeys: nil) else {
+            return 0
+        }
+        let cutoff = Date().addingTimeInterval(-age)
+        var removed = 0
+        for item in items {
+            guard let values = try? item.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let modified = values.contentModificationDate,
+                  modified < cutoff else { continue }
+            if (try? fm.removeItem(at: item)) != nil {
+                removed += 1
+            }
+        }
+        return removed
+    }
+
     public func fileCount() -> Int {
         (try? FileManager.default.contentsOfDirectory(atPath: baseURL.path).count) ?? 0
     }

@@ -155,6 +155,13 @@ enum LearnContent {
             "**Support & resistance:** recent swing lows (floors) and highs (ceilings) where price has turned before.",
             "**Volume spikes & gaps:** unusually heavy volume or an opening gap usually marks news — *confirmation* of a move, not a reason on its own."
         ]),
+        Topic(title: "Magic Formula: cheap and productive", icon: "wand.and.stars", points: [
+            "**Ranks companies two ways:** earnings yield (operating profit against what the whole company costs) and return on capital (profit earned on the capital the business uses). Good on both ranks higher.",
+            "**Earnings yield = EBIT ÷ enterprise value.** Enterprise value is market value plus debt minus cash. Here EBIT is pre-tax income plus interest, and market value is price times diluted shares.",
+            "**Return on capital = EBIT ÷ (working capital excluding cash and current debt + net PP&E).**",
+            "**A screen, not a verdict.** It surfaces cheap, productive companies for a closer look, and results can lag for years.",
+            "**Greenblatt tested it on U.S. large caps,** so a TSX ranking is a starting point."
+        ]),
         Topic(title: "Piotroski F-Score: a nine-point health check", icon: "checklist", points: [
             "**Nine yes/no tests** across profitability (positive ROA and cash flow, rising ROA, cash flow above earnings), leverage (debt falling), liquidity (current ratio rising), dilution (no new shares), and efficiency (gross margin and asset turnover rising).",
             "**Read it as a health check, not a buy signal.** A common reading is 8–9 as strong and 0–2 as weak. A low score is a reason to ask why, not a verdict.",
