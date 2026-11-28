@@ -22,6 +22,18 @@ public final class SettingsStore: @unchecked Sendable {
         static let featuredSymbol = "settings.featuredSymbol"
         static let accountSize = "settings.accountSize"
         static let maxRiskPerTrade = "settings.maxRiskPerTrade"
+        static let taxAccount = "settings.taxAccount"
+    }
+
+    /// The account holdings sit in. Used only for the tax notes on the Quant Checks card.
+    public var taxAccount: TaxAccount {
+        get {
+            if let raw = defaults.string(forKey: Key.taxAccount), let a = TaxAccount(rawValue: raw) {
+                return a
+            }
+            return .nonRegistered
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.taxAccount) }
     }
 
     public var accountSize: Double {

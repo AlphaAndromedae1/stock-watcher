@@ -33,6 +33,7 @@ struct StockDetailView: View {
                     chartCard
                     chartSignalsCard
                     relativeStrengthCard
+                    quantCard
                     oddsCard
                 }
                 Group {
@@ -570,6 +571,119 @@ struct StockDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: Quant Checks (Tier 1, informational, never in the Score)
+
+    private func quantHasContent(_ q: QuantSnapshot) -> Bool {
+        if q.graham != nil || q.sector != nil { return true }
+        if q.momentum != nil || q.volatility != nil { return true }
+        if q.maxDrawdown != nil || q.avgDollarVolume != nil { return true }
+        return q.withholding != nil
+    }
+
+    @ViewBuilder
+    private var quantCard: some View {
+        if let q = model.quant, quantHasContent(q) {
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Quant Checks").font(.headline)
+                        Spacer()
+                        Text("informational").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Text("Simple measures from price, volume and valuation. Never part of the Score.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Group {
+                        if let g = q.graham {
+                            quantRow("Graham Number", value: Fmt.number(g.value),
+                                     detail: grahamDetail(g),
+                                     tint: g.marginOfSafety >= 0 ? gainColor : lossColor)
+                        }
+                        if let s = q.sector {
+                            quantRow("Valuation vs \(s.sectorName) peers",
+                                     value: Fmt.signedPercent(s.premium * 100),
+                                     detail: sectorDetail(s))
+                        }
+                        if let m = q.momentum {
+                            quantRow("Momentum (≈12-1)", value: Fmt.signedPercent(m * 100),
+                                     detail: momentumDetail(q), tint: momentumTint(q))
+                        }
+                        if let v = q.volatility {
+                            quantRow("Volatility (yearly)", value: Fmt.percentFromFraction(v, decimals: 0),
+                                     detail: "Typical yearly swing, annualised from daily moves.")
+                        }
+                        if let dd = q.maxDrawdown {
+                            quantRow("Max drawdown (1y)", value: Fmt.percentFromFraction(dd, decimals: 0),
+                                     detail: drawdownDetail(q))
+                        }
+                        if let r = q.returnPerRisk {
+                            quantRow("Return ÷ volatility", value: Fmt.number(r),
+                                     detail: "One-year return per unit of volatility. Higher is better. No risk-free rate is subtracted, so this is not the Sharpe ratio.")
+                        }
+                        if let adv = q.avgDollarVolume {
+                            quantRow("Avg daily value traded", value: Fmt.bigNumber(adv),
+                                     detail: "About three months of average daily value. Thin trading can make it costly to exit.")
+                        }
+                        if let w = q.withholding {
+                            quantRow("Withholding (\(SettingsStore.shared.taxAccount.title))",
+                                     value: withholdingValue(w), detail: w.text)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func quantRow(_ title: String, value: String, detail: String, tint: Color? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(.subheadline.bold())
+                Spacer(minLength: 8)
+                Text(value)
+                    .font(.subheadline.monospacedDigit().bold())
+                    .foregroundStyle(tint ?? Color.primary)
+            }
+            Text(detail).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func grahamDetail(_ g: GrahamValuation) -> String {
+        if g.marginOfSafety >= 0 {
+            return "Price is \(Fmt.percentFromFraction(g.marginOfSafety, decimals: 0)) below this conservative ceiling. It ignores growth, so treat it as a margin of safety, not a guarantee."
+        }
+        let above = -g.marginOfSafety
+        return "Price is \(Fmt.percentFromFraction(above, decimals: 0)) above this ceiling. It ignores growth, so a premium is not automatically expensive."
+    }
+
+    private func sectorDetail(_ s: SectorValuation) -> String {
+        "P/E \(Fmt.number(s.ownPE, decimals: 1)) vs a peer median of \(Fmt.number(s.peerMedianPE, decimals: 1)) across \(s.peerCount) same-sector TSX names. Sectors are broad, so treat this as context."
+    }
+
+    private func momentumDetail(_ q: QuantSnapshot) -> String {
+        var text = "About 11 months of price change, skipping the latest month. Momentum tends to persist, but it is not a guarantee."
+        if let b = q.benchmarkMomentum {
+            text += " \(YahooService.benchmark(for: model.symbol).name): \(Fmt.signedPercent(b * 100))."
+        }
+        return text
+    }
+
+    private func momentumTint(_ q: QuantSnapshot) -> Color? {
+        guard let m = q.momentum, let b = q.benchmarkMomentum else { return nil }
+        return m >= b ? gainColor : lossColor
+    }
+
+    private func drawdownDetail(_ q: QuantSnapshot) -> String {
+        var text = "Worst peak-to-trough fall in the last year."
+        if let cur = q.currentDrawdown {
+            text += " Now \(Fmt.percentFromFraction(-cur, decimals: 0)) below its high."
+        }
+        return text
+    }
+
+    private func withholdingValue(_ w: WithholdingNote) -> String {
+        guard let drag = w.drag else { return "Varies" }
+        return drag > 0 ? "\(Fmt.percentFromFraction(drag, decimals: 2))/yr" : "None"
     }
 
     // MARK: Relative Strength (vs. market benchmark)

@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var alertsOn = SettingsStore.shared.alertsEnabled
     @State private var vixOn = SettingsStore.shared.vixAlertEnabled
     @State private var featured = SettingsStore.shared.featuredSymbol ?? ""
+    @State private var taxAccount = SettingsStore.shared.taxAccount
 
     private var watchlistSymbols: [String] { WatchlistStore.shared.load().map(\.symbol) }
     private func displaySymbol(_ s: String) -> String {
@@ -40,6 +41,19 @@ struct SettingsView: View {
                         }
                     }
                     .onChange(of: defaultRange) { _, v in store.defaultRange = v }
+                }
+
+                Section {
+                    Picker("Account", selection: $taxAccount) {
+                        ForEach(TaxAccount.allCases, id: \.self) { a in
+                            Text(a.title).tag(a)
+                        }
+                    }
+                    .onChange(of: taxAccount) { _, v in store.taxAccount = v }
+                } header: {
+                    Text("Tax account")
+                } footer: {
+                    Text("Used only for the tax notes on each stock's Quant Checks card (for example, U.S. dividend withholding). Not tax advice.")
                 }
 
                 Section {

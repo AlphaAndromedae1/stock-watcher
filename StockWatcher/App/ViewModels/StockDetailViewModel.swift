@@ -16,6 +16,7 @@ final class StockDetailViewModel: ObservableObject {
     @Published var earnings: EarningsHistory?
     @Published var relativeStrength: RelativeStrength?
     @Published var chartSignals: [ChartSignal] = []
+    @Published var quant: QuantSnapshot?
     @Published var composite: CompositeEvaluator.Result?
     @Published var range: ChartRange = .oneYear
 
@@ -125,6 +126,7 @@ final class StockDetailViewModel: ObservableObject {
         // the detail screen fills in one round-trip instead of four. None throw
         // except the benchmark chart (guarded with try?).
         let bench = YahooService.benchmark(for: symbol)
+        let peerInfo = QuantMetrics.peers(for: symbol)
         async let fundamentalsTask = service.fetchFundamentals(symbol: symbol)
         async let profileTask = service.fetchProfile(symbol: symbol)
         async let earningsTask = service.fetchEarnings(symbol: symbol)
@@ -137,12 +139,37 @@ final class StockDetailViewModel: ObservableObject {
         profile = await profileTask
         earnings = await earningsTask
 
+        let index = try? await indexTask
+
         // Relative strength vs the market benchmark (informational only). Reuses
         // the year of daily bars already fetched for the rating.
-        if !ratingCandles.isEmpty, let idx = try? await indexTask {
+        if !ratingCandles.isEmpty, let idx = index {
             relativeStrength = RelativeStrengthAnalyzer.compute(
                 stock: ratingCandles, index: idx.candles, benchmarkName: bench.name)
         }
+
+        // Tier-1 quant checks. Graham and sector P/E apply only to a confirmed
+        // operating company, so peer lookups run only in that case. They start
+        // after the main batch above and are cached for 24 hours.
+        let isOperatingCompany = profile?.quoteType?.uppercased() == "EQUITY"
+        var peerPEs: [Double] = []
+        if isOperatingCompany, let info = peerInfo {
+            let peerMap = await service.fetchPeerTrailingPEs(symbols: info.symbols)
+            peerPEs = Array(peerMap.values)
+        }
+        quant = QuantMetrics.snapshot(
+            symbol: symbol,
+            candles: ratingCandles,
+            benchmark: index?.candles,
+            price: quote?.price ?? ratingCandles.last?.close,
+            trailingPE: f.trailingPE,
+            priceToBook: f.priceToBook,
+            dividendYield: f.dividendYield,
+            isOperatingCompany: isOperatingCompany,
+            isFund: profile?.isFund ?? false,
+            sectorName: peerInfo?.sector,
+            peerPEs: peerPEs,
+            account: SettingsStore.shared.taxAccount)
 
         // Custom Stock Watcher Score blends everything we have (user-tunable weights).
         composite = CompositeEvaluator.evaluate(technical: rating, fundamentals: f, quote: quote,

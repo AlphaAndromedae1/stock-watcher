@@ -155,6 +155,16 @@ enum LearnContent {
             "**Support & resistance:** recent swing lows (floors) and highs (ceilings) where price has turned before.",
             "**Volume spikes & gaps:** unusually heavy volume or an opening gap usually marks news — *confirmation* of a move, not a reason on its own."
         ]),
+        Topic(title: "Quant checks: what they measure", icon: "function", points: [
+            "**Graham Number:** √(22.5 × EPS × book value per share). A conservative ceiling from Benjamin Graham's defensive-investor work. It applies only to profitable companies and ignores growth, so a price above it is not automatically expensive.",
+            "**Momentum (≈12-1):** stocks that rose over the past year have tended to keep rising for a while. That is a tendency, not a guarantee. The app shows about 11 months, because its data window is one year, against the TSX Composite.",
+            "**Volatility & drawdown:** how far a price typically swings in a year, and how far it has fallen from its high. Know both before sizing a position.",
+            "**Return ÷ volatility:** a rough reward-per-risk read. It is not the Sharpe ratio, which also subtracts a risk-free rate.",
+            "**Liquidity:** average daily value traded. Thinly traded stocks can be hard to sell at a fair price.",
+            "**Sector P/E:** compares valuation with same-sector TSX names. Sectors here are broad, so treat it as context.",
+            "**Withholding:** U.S. dividends have about 15% withheld at source. A TFSA generally can't recover it. Held directly in an RRSP, U.S. dividends are generally exempt.",
+            "**These are informational.** None is part of the Stock Watcher Score, and none is a buy or sell signal on its own."
+        ]),
         Topic(title: "Market mood & fear (VIX)", icon: "gauge.medium", points: [
             "**VIX is the \u{201C}fear gauge\u{201D}** — the S&P 500's expected 30-day volatility priced into options. It rises when investors get nervous and spikes when they panic. For Canada, the equivalent is **VIXC** (S&P/TSX 60).",
             "**Rough levels:** under ~15 calm, 15–20 normal, 20–28 guarded, 28–38 fearful, 38+ panic — the same bands the Ideas tab's Market Mood card uses.",

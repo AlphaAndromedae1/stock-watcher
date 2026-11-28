@@ -138,6 +138,47 @@ public final class YahooService: @unchecked Sendable {
         }
     }
 
+    // MARK: - Peer valuation (cached)
+
+    /// Cached trailing P/E for one peer. `pe` is nil for a miss, which is cached
+    /// too, so a peer with no usable P/E isn't re-requested on every detail open.
+    struct PeerPECache: Codable {
+        let pe: Double?
+    }
+
+    static let peerCacheTTL: TimeInterval = 24 * 60 * 60
+
+    /// Trailing P/E for each peer, best-effort. Each symbol is cached for 24 hours.
+    public func fetchPeerTrailingPEs(symbols: [String]) async -> [String: Double] {
+        await withTaskGroup(of: (String, Double?).self) { group -> [String: Double] in
+            for symbol in symbols {
+                group.addTask {
+                    let pe = await self.cachedTrailingPE(symbol: symbol)
+                    return (symbol, pe)
+                }
+            }
+            var out: [String: Double] = [:]
+            for await (symbol, pe) in group {
+                if let pe { out[symbol] = pe }
+            }
+            return out
+        }
+    }
+
+    private func cachedTrailingPE(symbol: String) async -> Double? {
+        let key = "peerpe.\(symbol)"
+        let cache = DataCache.shared
+        if let age = cache.age(key: key), age < Self.peerCacheTTL,
+           let hit = cache.load(PeerPECache.self, key: key) {
+            return hit.pe
+        }
+        let f = await fetchFundamentals(symbol: symbol)
+        var pe: Double? = nil
+        if let raw = f.trailingPE, raw > 0, raw.isFinite { pe = raw }
+        cache.save(PeerPECache(pe: pe), key: key)
+        return pe
+    }
+
     // MARK: - Fundamentals (best effort)
 
     public func fetchFundamentals(symbol: String) async -> Fundamentals {
